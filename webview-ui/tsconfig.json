@@ -19,6 +19,7 @@
     "resolveJsonModule": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,    
+    "allowImportingTsExtensions": true,
   },
   "include": ["./src"]
 }
