@@ -2,7 +2,7 @@
   "name": "afv-extension",
   "displayName": "afv-extension",
   "description": "UI for the Automatic Formal Verification tool used to formally verify Cardano smart contracts written in Plinth.",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "engines": {
     "vscode": "^1.101.0"
   },
@@ -19,6 +19,35 @@
       {
         "command": "extension.helloWorld",
         "title": "Hello World"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "afv-extension",
+          "title": "AFV Extension",
+          "icon": "media/debug-line-by-line.svg"
+        }
+      ]
+    },
+    "views": {
+      "afv-extension": [
+        {
+          "id": "property-panel",
+          "name": "Property Panel",
+          "type": "tree"
+        },
+        {
+          "id": "solver-config",
+          "name": "Solver Configuration",
+          "type": "webview"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "property-panel",
+        "contents": "No Properties Detected. \nAdd the properties to your file using the [Universal Annotation Language](https://github.com/input-output-hk/sc-fvt) then save your file to display the properties in this property panel."
       }
     ]
   },
