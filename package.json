@@ -1,5 +1,6 @@
 {
   "name": "afv-extension",
+  "publisher": "Cardano High Assurance | IOE",
   "displayName": "afv-extension",
   "description": "UI for the Automatic Formal Verification tool used to formally verify Cardano smart contracts written in Plinth.",
   "version": "0.0.1",
