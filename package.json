@@ -15,28 +15,8 @@
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
-    "commands": [
-      {
-        "command": "extension.helloWorld",
-        "title": "Hello World"
-      }
-    ],
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "afv-extension",
-          "title": "AFV Extension",
-          "icon": "media/debug-line-by-line.svg"
-        }
-      ]
-    },
     "views": {
-      "afv-extension": [
-        {
-          "id": "property-panel",
-          "name": "Property Panel",
-          "type": "tree"
-        },
+      "test": [
         {
           "id": "solver-config",
           "name": "Solver Configuration",
@@ -74,6 +54,7 @@
     "typescript": "^5.8.3"
   },
   "dependencies": {
-    "all": "^0.0.0"
+    "all": "^0.0.0",
+    "zustand": "^5.0.6"
   }
 }

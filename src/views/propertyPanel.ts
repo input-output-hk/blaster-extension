@@ -1,27 +1,68 @@
 import * as vscode from 'vscode';
-import * as fs from 'fs';
-import * as path from 'path';
+import useStore from '../store/store';
 
-export class PropertyPanelProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
+export async function registerPropertyPanel(testCtrl: vscode.TestController) {
+        await getTreeList();
+        const { fileTree } = useStore.getState();
 
-    constructor(private workspacePathURI: string) {}
+        if (!fileTree) return;
 
-    getTreeItem(element: vscode.TreeItem): vscode.TreeItem {
-        return element;
-    }
+        const rootItem = testCtrl.createTestItem(fileTree.path, fileTree.label, vscode.Uri.file(fileTree.path));
+	    testCtrl.items.add(rootItem);
 
-    async getChildren(element?: vscode.TreeItem): Promise<vscode.TreeItem[]> {
-        if (!this.workspacePathURI) {
-			vscode.window.showInformationMessage('No properties in empty workspace');
-			return Promise.resolve([]);
-		}
+        for (const file of fileTree.children || []) {
+		if (file.type === 'file') {
+			const fileUri = vscode.Uri.file(file.path);
+			const fileItem = testCtrl.createTestItem(file.path, file.label, fileUri);
+			rootItem.children.add(fileItem);
 
-        const propertiesPath = path.join(this.workspacePathURI, 'properties');
-        if (!fs.existsSync(propertiesPath)) {
-            return [];
+		    }
+	    }
+
+        testCtrl.createRunProfile('Run Tests', vscode.TestRunProfileKind.Run, (request, token) => {
+        const run = testCtrl.createTestRun(request);
+
+        for (const test of request.include ?? []) {
+            run.started(test);
+            run.passed(test); 
         }
 
-        const files = fs.readdirSync(propertiesPath);
-        return files.map(file => new vscode.TreeItem(file, vscode.TreeItemCollapsibleState.None));
+        run.end();
+    }, true);
     }
+
+const rootFolder = (vscode.workspace.workspaceFolders && (vscode.workspace.workspaceFolders.length > 0)) ? vscode.workspace.workspaceFolders[0] : undefined;
+const { changeFileTree, fileTree } = useStore.getState();
+
+async function getTreeList(){
+    if (!rootFolder) {
+        vscode.window.showErrorMessage('No workspace folder is open. Please open a folder to use this extension.');
+        return;
+    }
+
+    const treeList: string[] = [];
+    const files = vscode.workspace.findFiles('**/*.lean');
+    
+    await files.then((fileUris) => {
+        fileUris.forEach(fileUri => {
+            treeList.push(fileUri.path);
+        });
+    });
+
+    await changeFileTree({
+        label: rootFolder.name,
+        path: rootFolder.uri.fsPath,
+        timeToExecute: '',
+        status: 'unchecked',
+        type: 'folder',
+        children: treeList.map(filePath => ({
+            label: filePath.split('/').pop() || '',
+            path: filePath,
+            timeToExecute: '',
+            status: 'unchecked',
+            type: 'file'
+        }))
+    });
+
+    return fileTree;
 }
