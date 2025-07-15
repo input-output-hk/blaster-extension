@@ -15,3 +15,5 @@ export type PropertyNode = {
     parentFile: string;
     type: 'property'
 }
+
+export type TreeNode = [string, string, string[]]

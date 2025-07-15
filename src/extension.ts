@@ -6,8 +6,9 @@ import { registerPropertyPanel } from './views/propertyPanel';
 
 //Dependencies required to run the extension
 const requiredDependencies = [
-  { command: 'afv', errorMessage: 'The Automatic Formal Verification tool is not installed. Please install it before using the extension.' },
+  // { command: 'afv', errorMessage: 'The Automatic Formal Verification tool is not installed. Please install it before using the extension.' },
   { command: 'z3', errorMessage: 'Z3 is not installed. Please install it before using the extension.' },
+  { command: 'lean', errorMessage: 'Lean is not installed. Please install it before using the extension.' },
   // add a check for Lean and other dependencies as needed and offer to install them
 ];
 
