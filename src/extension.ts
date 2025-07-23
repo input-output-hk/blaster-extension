@@ -31,9 +31,14 @@ export function activate(context: vscode.ExtensionContext) {
 
 async function checkEnvSetup(packages: {command: string; errorMessage: string}[]) {
   for (const pkg of packages) {
-    exec(`${pkg.command} --version`, (error) => {
-        if (error) {
+    exec(`${pkg.command} --version`, (err, stderr) => {
+        if (err) {
           vscode.window.showErrorMessage(pkg.errorMessage);
+          console.error('Env setup check cmd failed:', err.message);
+          return;
+        }
+        if (stderr) {
+          console.error('Env setup check stderr:', stderr);
           return;
         }
       }
