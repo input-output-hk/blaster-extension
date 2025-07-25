@@ -153,15 +153,6 @@ async function startTestRun(testCtrl: vscode.TestController, request: vscode.Tes
         testCtrl.items.forEach(test => queue.push(test));
     }
 
-    const cmd = `sc-verifier ${cmdUri} ${propFlag}`;
-    const runCmd = spawn(cmd, { shell: true });
-
-    token.onCancellationRequested(() => {
-        console.warn('Test run was canceled. Stopping the command execution.');
-        runCmd.kill(); 
-        run.end();
-    });
-
     while (queue.length > 0 && !token.isCancellationRequested) {
         const test = queue.pop();
         if (!test) continue;
@@ -174,18 +165,52 @@ async function startTestRun(testCtrl: vscode.TestController, request: vscode.Tes
         run.enqueued(test);
     }
 
+    const cmd = `sc-verifier ${cmdUri} ${propFlag}`;
+    const runCmd = spawn(cmd, { shell: true });
+
+    for (const test of testItems) {
+        run.started(test);
+    }
+
+    token.onCancellationRequested(() => {
+        console.warn('Test run was canceled. Stopping the command execution.');
+        runCmd.kill(); 
+        run.end();
+    });
+
     runCmd.stdout.on('data', (data: any) => {
-        console.log(`stdout: ${data}`);
+        const lines = data.toString().split('\n');
+        for (const line of lines) {
+            try {
+                const result = JSON.parse(line);
+                const testName = result['theorem'].split('.').pop();
+                const testItem = testItems.find(item => item.label === testName);
+
+                if (testItem) {
+                    if (result['status'] === 'valid') {
+                        run.passed(testItem);
+                    } else if (result['status'] === 'falsified') {
+                        run.failed(testItem, new vscode.TestMessage('falsified property'));
+                    } else {
+                        run.skipped(testItem);
+                    }
+                } else {
+                    console.warn(`Test item not found for name: ${testName}`);
+                }
+            } catch (error) {
+                console.error(`Error parsing line as JSON: ${error}`);
+            }
+        }
     });
 
     runCmd.stderr.on('data', (data: any) => {
         console.error(`stderr: ${data}`);
     });
 
-    runCmd.on('error', (error: any) => {
-        console.error(`Error executing command: ${error.message}`);
-        // run.end();
-    });
+    // runCmd.on('error', (error: any) => {
+    //     console.error(`Error executing command: ${error.message}`);
+    //     // run.end();
+    // });
 
     runCmd.on('exit', (code: number) => {
         console.log(`Child process exited with code ${code}`);
