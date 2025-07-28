@@ -13,18 +13,11 @@
     "Programming Languages",
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./out/extension.js",
   "contributes": {
-    "views": {
-      "test": [
-        {
-          "id": "solver-config",
-          "name": "Solver Configuration",
-          "type": "webview"
-        }
-      ]
-    },
     "viewsWelcome": [
       {
         "view": "property-panel",
