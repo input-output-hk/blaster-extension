@@ -73,8 +73,8 @@ async function getTreeList(){
     await getProperties(treeList);
 
     await changeFileTree({
-        label: rootFolder.name,
-        path: rootFolder.uri.fsPath,
+        label: `${rootFolder.name}/DemoRareEvo`,
+        path: `${rootFolder.uri.fsPath}/DemoRareEvo`,
         timeToExecute: '',
         status: 'unchecked',
         type: 'folder',
@@ -132,7 +132,7 @@ async function startTestRun(testCtrl: vscode.TestController, request: vscode.Tes
     const queue: vscode.TestItem[] = [];
     const testItems: vscode.TestItem[] = [];
     let cmdUri: string | undefined;
-    let propFlag: string = 'all';
+    let propFlag: string = '';
 
     if (request.include) {
         cmdUri = request.include[0].uri?.path;
@@ -165,7 +165,8 @@ async function startTestRun(testCtrl: vscode.TestController, request: vscode.Tes
         run.enqueued(test);
     }
 
-    const cmd = `sc-verifier ${cmdUri} ${propFlag}`;
+    const cmd = `sc-verifier --json ${cmdUri} ${propFlag}`;
+    console.log('This is the full command:', cmd);
     const runCmd = spawn(cmd, { shell: true });
 
     for (const test of testItems) {
