@@ -6,10 +6,9 @@ import { registerPropertyPanel } from './views/propertyPanel';
 
 //Dependencies required to run the extension
 const requiredDependencies = [
-  // { command: 'afv', errorMessage: 'The Automatic Formal Verification tool is not installed. Please install it before using the extension.' },
+  { command: 'sc-verifier', errorMessage: 'SC Verifier is not found. Please install and make sure the executable is is globally accessible.' },
   { command: 'z3', errorMessage: 'Z3 is not installed. Please install it before using the extension.' },
   { command: 'lean', errorMessage: 'Lean is not installed. Please install it before using the extension.' },
-  // add a check for Lean and other dependencies as needed and offer to install them
 ];
 
 // This method is called when your extension is activated
@@ -20,10 +19,10 @@ export function activate(context: vscode.ExtensionContext) {
   //register the test explorer view
   const testCtrl = vscode.tests.createTestController('propertyPanel', 'Property Panel');
   registerPropertyPanel(testCtrl);
-  
-	// regsiter any commands the property panel needs to use
 
-	// register the other views in the extension
+	// todo: register any commands the property panel needs to use
+
+	// todo: register the other views in the extension
 
   // push disposable resources to the context
   context.subscriptions.push(testCtrl);
