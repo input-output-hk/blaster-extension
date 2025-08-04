@@ -15,16 +15,12 @@ export async function registerPropertyPanel(testCtrl: vscode.TestController) {
             return;
         }
 
-        const rootItem = testCtrl.createTestItem(fileTree.path, fileTree.label, vscode.Uri.file(fileTree.path));
         const rootTag = new vscode.TestTag('root');
-        rootItem.tags = [rootTag];
-	    testCtrl.items.add(rootItem);
-
         const folderTag = new vscode.TestTag('folder');
         const fileTag = new vscode.TestTag('file');
         const propertyTag = new vscode.TestTag('property');
 
-        const addChildren = (parentItem: vscode.TestItem, node: typeof fileTree) => {
+        const addChildren = (parentItem: vscode.TestItem, node: FolderNode) => {
             for (const child of node.children || []) {
                 const childUri = vscode.Uri.file(child.path);
                 const childItem = testCtrl.createTestItem(child.path, child.label, childUri);
@@ -47,8 +43,13 @@ export async function registerPropertyPanel(testCtrl: vscode.TestController) {
                 }
             }
         };
-    
-    addChildren(rootItem, fileTree);
+
+    for (const root of fileTree) {
+            const rootItem = testCtrl.createTestItem(root.path, root.label, vscode.Uri.file(root.path));
+            rootItem.tags = [rootTag];
+            testCtrl.items.add(rootItem);
+            addChildren(rootItem, root);
+        }
 
     testCtrl.createRunProfile('Run Proofs', vscode.TestRunProfileKind.Run, async (request, token) => {
         startTestRun(testCtrl, request, token);
@@ -56,21 +57,22 @@ export async function registerPropertyPanel(testCtrl: vscode.TestController) {
 }
 
 // Import the store to manage the file tree state
-const { changeFileTree } = useStore.getState();
+const { createFileTree } = useStore.getState();
 
 // Function to get the list of Lean files in the workspace and update the file tree
 async function constructTreeList(){
     // Get the root folder of the workspace
-    const rootFolder = (vscode.workspace.workspaceFolders && (vscode.workspace.workspaceFolders.length > 0)) ? vscode.workspace.workspaceFolders[0] : undefined;
+    const rootFolder = (vscode.workspace.workspaceFolders && (vscode.workspace.workspaceFolders.length > 0)) ? vscode.workspace.workspaceFolders : undefined;
 
     if (!rootFolder) {
         vscode.window.showErrorMessage('No workspace folder is open. Please open a folder to use this extension.');
         return;
     }
 
-    const treeList = await readFolderRecursively(rootFolder.uri.fsPath);
-
-    await changeFileTree(treeList);
+    //Check if the user has a single or multiroot folder workspace set up and recursively read the folder structure accordingly
+    const treeList = await Promise.all(rootFolder.map(folder => readFolderRecursively(folder.uri.fsPath)));
+  
+    await createFileTree(treeList);
 
     return treeList;
 }
@@ -140,7 +142,8 @@ async function getProperties(leanFile: fs.Dirent<string>) {
 
     for (const line of lines) {
         if (line.startsWith('theorem ')) {
-            const match = line.match(/^theorem\s+([^\s:]+)\s*:/);
+            console.log(`Found theorem in file ${filePath}:`, line);
+            const match = line.match(/^theorem\s+([^\s{(]+)/);
             if (match && match[1]) {
                 foundTheorems.push(match[1]);
             }
@@ -151,6 +154,7 @@ async function getProperties(leanFile: fs.Dirent<string>) {
 }
 
 async function startTestRun(testCtrl: vscode.TestController, request: vscode.TestRunRequest, token: vscode.CancellationToken) {
+    console.log('Starting test run with request:', request);
     const run = testCtrl.createTestRun(request);
     const queue: vscode.TestItem[] = [];
     const testItems: vscode.TestItem[] = [];
@@ -232,7 +236,7 @@ async function startTestRun(testCtrl: vscode.TestController, request: vscode.Tes
 
     runCmd.on('error', (error: any) => {
         console.error(`Error executing command: ${error.message}`);
-        run.end();
+        // run.end();
     });
 
     runCmd.on('exit', (code: number) => {
