@@ -1,12 +1,13 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as path from 'path';
 import { spawn } from 'node:child_process';
 import useStore from '../store/store';
-import { TreeNode, PropertyNode } from '../store/types';
+import { FolderNode, FileNode, PropertyNode } from '../store/types';
 
 // Function to register the property panel in the Test Explorer
 export async function registerPropertyPanel(testCtrl: vscode.TestController) {
-        await getTreeList();
+        await constructTreeList();
         const { fileTree } = useStore.getState();
 
         if (!fileTree) {
@@ -20,111 +21,133 @@ export async function registerPropertyPanel(testCtrl: vscode.TestController) {
 	    testCtrl.items.add(rootItem);
 
         const folderTag = new vscode.TestTag('folder');
+        const fileTag = new vscode.TestTag('file');
         const propertyTag = new vscode.TestTag('property');
 
-        for (const file of fileTree.children || []) {
-		if (file.type === 'file') {
-			const fileUri = vscode.Uri.file(file.path);
-			const fileItem = testCtrl.createTestItem(file.path, file.label, fileUri);
-            fileItem.tags = [folderTag];
-            fileItem.canResolveChildren = true;
-			rootItem.children.add(fileItem);
-            if (file.children && file.children.length > 0) {
-                fileItem.description = `${file.children.length} ${file.children.length > 1 ? 'properties' : 'property'}`;
-                for (const prop of file.children) {
-                    const propItem = testCtrl.createTestItem(prop.label, prop.label, fileUri);
-                    propItem.tags = [propertyTag];
-                    fileItem.children.add(propItem);
+        const addChildren = (parentItem: vscode.TestItem, node: typeof fileTree) => {
+            for (const child of node.children || []) {
+                const childUri = vscode.Uri.file(child.path);
+                const childItem = testCtrl.createTestItem(child.path, child.label, childUri);
+
+                if (child.type === 'folder') {
+                    childItem.tags = [folderTag];
+                    childItem.canResolveChildren = true;
+                    parentItem.children.add(childItem);
+                    addChildren(childItem, child);
+                } else if (child.type === 'file') {
+                    childItem.tags = [fileTag];
+                    childItem.canResolveChildren = true;
+                    parentItem.children.add(childItem);
+                    childItem.description = `${child.children.length} ${child.children.length > 1 ? 'properties' : 'property'}`;
+                    for (const prop of child.children) {
+                        const propItem = testCtrl.createTestItem(prop.label, prop.label, childUri);
+                        propItem.tags = [propertyTag];
+                        childItem.children.add(propItem);
+                    }
                 }
-            } else {
-                fileItem.description = 'No properties found';
             }
-	    }
-    }
+        };
+    
+    addChildren(rootItem, fileTree);
 
     testCtrl.createRunProfile('Run Proofs', vscode.TestRunProfileKind.Run, async (request, token) => {
         startTestRun(testCtrl, request, token);
     }, true);
 }
 
-// Get the root folder of the workspace
-const rootFolder = (vscode.workspace.workspaceFolders && (vscode.workspace.workspaceFolders.length > 0)) ? vscode.workspace.workspaceFolders[0] : undefined;
-
 // Import the store to manage the file tree state
-const { changeFileTree, fileTree } = useStore.getState();
+const { changeFileTree } = useStore.getState();
 
 // Function to get the list of Lean files in the workspace and update the file tree
-async function getTreeList(){
+async function constructTreeList(){
+    // Get the root folder of the workspace
+    const rootFolder = (vscode.workspace.workspaceFolders && (vscode.workspace.workspaceFolders.length > 0)) ? vscode.workspace.workspaceFolders[0] : undefined;
+
     if (!rootFolder) {
         vscode.window.showErrorMessage('No workspace folder is open. Please open a folder to use this extension.');
         return;
     }
-   
-    const treeList: TreeNode[] = [];
-    const leanTestFolder = new vscode.RelativePattern(rootFolder, 'DemoRareEvo/*.lean');
-    const files = vscode.workspace.findFiles(leanTestFolder);
 
-    await files.then((fileUris) => {
-        fileUris.forEach(fileUri => {
-            treeList.push([fileUri.path, fileUri.path.split('/').pop() || '', []]);
-        });
-    });
-    
-    await getProperties(treeList);
+    const treeList = await readFolderRecursively(rootFolder.uri.fsPath);
 
-    await changeFileTree({
-        label: `${rootFolder.name}/DemoRareEvo`,
-        path: `${rootFolder.uri.fsPath}/DemoRareEvo`,
+    await changeFileTree(treeList);
+
+    return treeList;
+}
+
+async function readFolderRecursively(currentPath: string): Promise<FolderNode>{
+    const folderNode: FolderNode = {
+        label: path.basename(currentPath),
+        path: currentPath,
         timeToExecute: '',
         status: 'unchecked',
         type: 'folder',
-        children: treeList.map(filePath => ({
-            path: filePath[0],
-            label: filePath[1],
-            children: filePath[2].map(child => ({
-                label: child || '',
-                path: filePath[0],
-                parentFile: filePath[1],
-                timeToExecute: '',
-                status: 'unchecked',
-                type: 'property',
-            })) as PropertyNode[],
-            timeToExecute: '',
-            status: 'unchecked',
-            type: 'file',
-        }))
-    });
+        children: [] as Array<FileNode | FolderNode>,
+    };
 
-    return fileTree;
+    let subChildren = fs.readdirSync(currentPath, {withFileTypes: true});
+
+    for (const child of subChildren) {
+        const itemPath = path.join(currentPath, child.name);
+
+        if (child.isDirectory()) {
+            const subFolder = await readFolderRecursively(itemPath);
+            if (subFolder.children.length > 0) {
+                folderNode.children.push(subFolder);
+            }
+        } else if (child.isFile() && child.name.endsWith('.lean')) {
+            const props = await getProperties(child);
+            if (props && props.length > 0) {
+                const fileNode: FileNode = {
+                    label: child.name,
+                    path: itemPath,
+                    timeToExecute: '',
+                    status: 'unchecked',
+                    type: 'file',
+                    children: props.map(prop => ({
+                        label: prop,
+                        path: itemPath,
+                        parentFile: child.name,
+                        timeToExecute: '',
+                        status: 'unchecked',
+                        type: 'property',
+                    })),
+                };
+                folderNode.children.push(fileNode);
+            }
+        }
+    }
+    return folderNode;
 }
 
 // Function to get properties of the files
-async function getProperties(filePaths: TreeNode[]) {
-    for (const file of filePaths) {
-        const filePath = file[0];
+async function getProperties(leanFile: fs.Dirent<string>) {
+    const filePath = `${leanFile.parentPath}/${leanFile.name}`;
 
-        let content;
-        try {
-            content = fs.readFileSync(filePath, 'utf-8');
-        } catch (error) {
-            console.error(`Error reading file ${filePath}:`, error);
-            continue;
-        }
-        const lines = content.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    let content;
+    try {
+        content = fs.readFileSync(filePath, 'utf-8');
+    } catch (error) {
+        console.error(`Error reading file ${filePath}:`, error);
+    }
+    if (!content) {
+        console.warn(`No content found in file ${filePath}. Skipping.`);
+        return;
+    }
+    const lines = content.split('\n').map(line => line.trim()).filter(line => line.length > 0);
 
-        const foundTheorems: string[] = [];
+    const foundTheorems: string[] = [];
 
-        for (const line of lines) {
-            if (line.startsWith('theorem ')) {
-                const match = line.match(/^theorem\s+([^\s:]+)\s*:/);
-                if (match && match[1]) {
-                    foundTheorems.push(match[1]);
-                }
+    for (const line of lines) {
+        if (line.startsWith('theorem ')) {
+            const match = line.match(/^theorem\s+([^\s:]+)\s*:/);
+            if (match && match[1]) {
+                foundTheorems.push(match[1]);
             }
         }
-
-        file[2] = foundTheorems;
     }
+
+    return foundTheorems;
 }
 
 async function startTestRun(testCtrl: vscode.TestController, request: vscode.TestRunRequest, token: vscode.CancellationToken) {
@@ -166,7 +189,6 @@ async function startTestRun(testCtrl: vscode.TestController, request: vscode.Tes
     }
 
     const cmd = `sc-verifier --json ${cmdUri} ${propFlag}`;
-    console.log('This is the full command:', cmd);
     const runCmd = spawn(cmd, { shell: true });
 
     for (const test of testItems) {
@@ -208,10 +230,10 @@ async function startTestRun(testCtrl: vscode.TestController, request: vscode.Tes
         console.error(`stderr: ${data}`);
     });
 
-    // runCmd.on('error', (error: any) => {
-    //     console.error(`Error executing command: ${error.message}`);
-    //     // run.end();
-    // });
+    runCmd.on('error', (error: any) => {
+        console.error(`Error executing command: ${error.message}`);
+        run.end();
+    });
 
     runCmd.on('exit', (code: number) => {
         console.log(`Child process exited with code ${code}`);
