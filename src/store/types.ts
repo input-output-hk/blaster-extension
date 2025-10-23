@@ -18,6 +18,7 @@ export type FileNode = {
 
 export type PropertyNode = {
     label: string;
+    position: number;
     path: string;
     timeToExecute: string;
     status: 'valid' | 'falsified' | 'undetermined' | 'unchecked' | 'error';

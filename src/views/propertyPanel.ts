@@ -5,8 +5,14 @@ import { spawn } from 'node:child_process';
 import useStore from '../store/store';
 import { FolderNode, FileNode, PropertyNode } from '../store/types';
 
+// Create a diagnostic collection for displaying icons in the editor gutter
+const diagnostics = vscode.languages.createDiagnosticCollection('afvDiagnostics');
+
 // Function to register the property panel in the Test Explorer
-export async function registerPropertyPanel(testCtrl: vscode.TestController) {
+export async function registerPropertyPanel(testCtrl: vscode.TestController, context: vscode.ExtensionContext) {
+        //register diagnostic collection
+        context.subscriptions.push(diagnostics);
+
         await constructTreeList();
         const { fileTree } = useStore.getState();
 
@@ -36,8 +42,9 @@ export async function registerPropertyPanel(testCtrl: vscode.TestController) {
                     parentItem.children.add(childItem);
                     childItem.description = `${child.children.length} ${child.children.length > 1 ? 'properties' : 'property'}`;
                     for (const prop of child.children) {
-                        const propItem = testCtrl.createTestItem(prop.label, prop.label, childUri);
+                        const propItem = testCtrl.createTestItem(`property:${prop.label}`, prop.label, childUri);
                         propItem.tags = [propertyTag];
+                        propItem.range = new vscode.Range(prop.position, 0, prop.position, 1);
                         childItem.children.add(propItem);
                     }
                 }
@@ -107,7 +114,8 @@ async function readFolderRecursively(currentPath: string): Promise<FolderNode>{
                     status: 'unchecked',
                     type: 'file',
                     children: props.map(prop => ({
-                        label: prop,
+                        label: prop.name,
+                        position: prop.line,
                         path: itemPath,
                         parentFile: child.name,
                         timeToExecute: '',
@@ -136,16 +144,15 @@ async function getProperties(leanFile: fs.Dirent<string>) {
         console.warn(`No content found in file ${filePath}. Skipping.`);
         return;
     }
-    const lines = content.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    const lines = content.split('\n');
 
-    const foundTheorems: string[] = [];
+    const foundTheorems: { name: string; line: number }[] = [];
 
     for (const line of lines) {
         if (line.startsWith('theorem ')) {
-            console.log(`Found theorem in file ${filePath}:`, line);
             const match = line.match(/^theorem\s+([^\s{(]+)/);
             if (match && match[1]) {
-                foundTheorems.push(match[1]);
+                foundTheorems.push({ name: match[1], line: lines.indexOf(line) });
             }
         }
     }
@@ -154,7 +161,6 @@ async function getProperties(leanFile: fs.Dirent<string>) {
 }
 
 async function startTestRun(testCtrl: vscode.TestController, request: vscode.TestRunRequest, token: vscode.CancellationToken) {
-    console.log('Starting test run with request:', request);
     const run = testCtrl.createTestRun(request);
     const queue: vscode.TestItem[] = [];
     const testItems: vscode.TestItem[] = [];
@@ -192,7 +198,7 @@ async function startTestRun(testCtrl: vscode.TestController, request: vscode.Tes
         run.enqueued(test);
     }
 
-    const cmd = `sc-verifier --json ${cmdUri} ${propFlag}`;
+    const cmd = `cd ${vscode.workspace.workspaceFolders[0].uri.fsPath} && sc-verifier --json ${cmdUri} ${propFlag}`;
     const runCmd = spawn(cmd, { shell: true });
 
     for (const test of testItems) {
@@ -211,13 +217,22 @@ async function startTestRun(testCtrl: vscode.TestController, request: vscode.Tes
             try {
                 const result = JSON.parse(line);
                 const testName = result['theorem'].split('.').pop();
+                console.log(`Processing result for test: ${result}`);
                 const testItem = testItems.find(item => item.label === testName);
 
                 if (testItem) {
                     if (result['status'] === 'valid') {
                         run.passed(testItem);
+                        diagnostics.delete(testItem.uri!);
                     } else if (result['status'] === 'falsified') {
                         run.failed(testItem, new vscode.TestMessage('falsified property'));
+
+                        const dia = new vscode.Diagnostic(
+                            new vscode.Range(new vscode.Position(0, 0), new vscode.Position(0, 1)),
+                            `Property falsified: ${testItem.label}`,
+                            vscode.DiagnosticSeverity.Error
+                        );
+                        diagnostics.set(testItem.uri!, [dia]);
                     } else {
                         run.skipped(testItem);
                     }
@@ -240,7 +255,6 @@ async function startTestRun(testCtrl: vscode.TestController, request: vscode.Tes
     });
 
     runCmd.on('exit', (code: number) => {
-        console.log(`Child process exited with code ${code}`);
         run.end();
     });    
 }
