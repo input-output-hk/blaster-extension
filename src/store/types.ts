@@ -3,17 +3,25 @@ export type FolderNode = {
     path: string;
     timeToExecute: string;
     status: 'valid' | 'falsified' | 'unchecked';
-    type: 'folder' | 'file';
-    children?: PropertyNode[] | FolderNode[];
+    type: 'folder';
+    children: Array<FileNode | FolderNode>;
+}
+
+export type FileNode = {
+    label: string;
+    path: string;
+    timeToExecute: string;
+    status: 'valid' | 'falsified' | 'unchecked';
+    type: 'file';
+    children: PropertyNode[];
 }
 
 export type PropertyNode = {
     label: string;
+    position: number;
     path: string;
     timeToExecute: string;
     status: 'valid' | 'falsified' | 'undetermined' | 'unchecked' | 'error';
     parentFile: string;
-    type: 'property'
+    type: 'property';
 }
-
-export type TreeNode = [string, string, string[]]

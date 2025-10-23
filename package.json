@@ -14,7 +14,10 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onCommand:afv-extension.afv.runAll",
+    "onCommand:afv-extension.afv.runFile",
+    "onCommand:afv-extension.afv.openPropertyResults"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -22,6 +25,92 @@
       {
         "view": "property-panel",
         "contents": "No Properties Detected. \nAdd the properties to your file using the [Universal Annotation Language](https://github.com/input-output-hk/sc-fvt) then save your file to display the properties in this property panel."
+      },
+      {
+        "view": "solverConfigurations",
+        "contents": "Solver Configurations view not registerd."
+      }
+    ],
+    "views": {
+      "test": [
+        {
+          "id": "solverConfigurations",
+          "name": "Solver Configurations",
+          "type": "webview"
+        }
+      ]
+    },
+    "menus": {
+      "testing/item/context": [
+        {
+          "command": "afv.openPropertyResults",
+          "when": "(testResultState == 'passed' && testId =~ /property:.*/) || (testResultState == 'failed' && testId =~ /property:.*/)",
+          "group": "navigation"
+        },
+         {
+          "command": "afv.openPropertyResults",
+          "when": "(testResultState == 'passed' && testId =~ /property:.*/) || (testResultState == 'failed' && testId =~ /property:.*/)",
+          "group": "inline"
+        }
+      ],
+      "testing/item/result": [
+        {
+          "command": "afv.openPropertyResults",
+          "group": "navigation"
+        },
+        {
+          "command": "afv.openPropertyResults",
+          "group": "inline"
+        }
+      ],
+      "editor/lineNumber/context": [
+         {
+          "command": "afv.openPropertyResults",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "afv.openPropertyResults",
+          "when": "testing.hasAnyResults && activeViewlet == 'workbench.view.extension.test'"
+        },
+         {
+        "command": "afv.runAll",
+        "when": "testing.hasRunnableTests && activeViewlet == 'workbench.view.extension.test'"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "afv.runAll",
+        "title": "Run All Proofs",
+        "category": "afv",
+        "description": "Rerun a proof for all properties"
+      },
+      {
+        "command": "afv.runFile",
+        "title": "Run File",
+        "category": "afv",
+        "description": "Run a proof for all properties in the current file"
+      },
+      {
+        "command": "afv.openPropertyResults",
+        "title": "View Results",
+        "category": "afv",
+        "description": "Open the property results view",
+        "icon": "$(book)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "afv.runAll",
+        "key": "ctrl+alt+r",
+        "when": "testing.hasRunnableTests && activeViewlet == 'workbench.view.extension.test'"
+      },
+      {
+        "command": "afv.openPropertyResults",
+        "key": "ctrl+alt+v",
+        "when": "testing.hasAnyResults && activeViewlet == 'workbench.view.extension.test'"
       }
     ]
   },

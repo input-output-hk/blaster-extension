@@ -3,6 +3,7 @@
 import * as vscode from 'vscode';
 import { exec } from 'child_process'; 
 import { registerPropertyPanel } from './views/propertyPanel';
+import { SolverConfigProvider, getWebviewHtml } from './views/webviewConfig';
 
 //Dependencies required to run the extension
 const requiredDependencies = [
@@ -18,14 +19,33 @@ export function activate(context: vscode.ExtensionContext) {
 
   //register the test explorer view
   const testCtrl = vscode.tests.createTestController('propertyPanel', 'Property Panel');
-  registerPropertyPanel(testCtrl);
+  registerPropertyPanel(testCtrl, context);
 
-	// todo: register any commands the property panel needs to use
+  //register the solver configurations view
+  const solverConfigProvider = vscode.window.registerWebviewViewProvider('solverConfigurations', new SolverConfigProvider(context.extensionUri));
 
-	// todo: register the other views in the extension
+	//register command to open property results in a webview panel
+  const viewResultsCommand = vscode.commands.registerCommand('afv.openPropertyResults', (testItem?: vscode.TestItem) => {
+    //register the property results view
+    const panel = vscode.window.createWebviewPanel(
+      'propertyResults',
+      'Property Results',
+      vscode.ViewColumn.Two,
+      {
+        enableScripts: true,
+      }
+    );
+
+    panel.webview.html = getWebviewHtml(panel.webview, context.extensionUri, 'build');
+
+    //send the test item data to the webview
+    if (testItem) {
+      panel.webview.postMessage({ type: 'loadTestItemResult', payload: testItem.label });
+    }
+  });
 
   // push disposable resources to the context
-  context.subscriptions.push(testCtrl);
+  context.subscriptions.push(testCtrl, solverConfigProvider, viewResultsCommand);
 }
 
 async function checkEnvSetup(packages: {command: string; errorMessage: string}[]) {
