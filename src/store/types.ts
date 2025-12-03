@@ -1,8 +1,6 @@
 export type FolderNode = {
     label: string;
     path: string;
-    timeToExecute: string;
-    status: 'valid' | 'falsified' | 'unchecked';
     type: 'folder';
     children: Array<FileNode | FolderNode>;
 }
@@ -10,8 +8,6 @@ export type FolderNode = {
 export type FileNode = {
     label: string;
     path: string;
-    timeToExecute: string;
-    status: 'valid' | 'falsified' | 'unchecked';
     type: 'file';
     children: PropertyNode[];
 }
@@ -20,8 +16,11 @@ export type PropertyNode = {
     label: string;
     position: number;
     path: string;
-    timeToExecute: string;
-    status: 'valid' | 'falsified' | 'undetermined' | 'unchecked' | 'error';
+    status: 'valid' | 'falsified' | 'undetermined' | 'unchecked';
+    time: number;
+    cex?: object;
     parentFile: string;
     type: 'property';
 }
+
+export type Property = Record<string, string[]>;

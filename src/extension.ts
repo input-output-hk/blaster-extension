@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import { exec } from 'child_process'; 
 import { registerPropertyPanel } from './views/propertyPanel';
 import { SolverConfigProvider, getWebviewHtml } from './views/webviewConfig';
+import useStore from './store/store';
 
 //Dependencies required to run the extension
 const requiredDependencies = [
@@ -24,23 +25,56 @@ export function activate(context: vscode.ExtensionContext) {
   //register the solver configurations view
   const solverConfigProvider = vscode.window.registerWebviewViewProvider('solverConfigurations', new SolverConfigProvider(context.extensionUri));
 
+  let panel: vscode.WebviewPanel | undefined = undefined;
+
 	//register command to open property results in a webview panel
   const viewResultsCommand = vscode.commands.registerCommand('afv.openPropertyResults', (testItem?: vscode.TestItem) => {
-    //register the property results view
-    const panel = vscode.window.createWebviewPanel(
+
+    //define the column to show the webview panel in
+    const columnToShowIn = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
+
+    //get test item data from the store
+    const { getPropertyNode, getFirstPropertyNode, propertyList } = useStore.getState();
+    const propertyNode = testItem ? getPropertyNode(testItem.label) : getFirstPropertyNode();
+
+    //check if webview panel is already open
+    if (panel) {
+      panel.reveal(columnToShowIn);
+
+      //send the test item data to the webview
+      if (propertyNode) {
+        panel.webview.postMessage({ type: 'loadTestItem', payload: propertyNode });
+      }
+    } else {
+      //register the property results view
+    panel = vscode.window.createWebviewPanel(
       'propertyResults',
       'Property Results',
       vscode.ViewColumn.Two,
       {
         enableScripts: true,
+        retainContextWhenHidden: true,
       }
     );
 
     panel.webview.html = getWebviewHtml(panel.webview, context.extensionUri, 'build');
+    // console.log('🔍 Final HTML passed to webview:\n', panel.webview.html);
 
-    //send the test item data to the webview
-    if (testItem) {
-      panel.webview.postMessage({ type: 'loadTestItemResult', payload: testItem.label });
+    // Listen for messages from the webview
+    panel.webview.onDidReceiveMessage(
+      message => {
+        if (message.type === 'webviewReady' && propertyNode) {
+          panel!.webview.postMessage({ type: 'loadPropertyResults', payload: propertyNode });
+        }
+      },
+      undefined,
+      context.subscriptions
+    );
+
+    //dispose resources on panel close
+    panel.onDidDispose(() => {
+      panel = undefined;
+    }, null, context.subscriptions);
     }
   });
 
@@ -48,6 +82,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(testCtrl, solverConfigProvider, viewResultsCommand);
 }
 
+// Function to check if required dependencies are installed
 async function checkEnvSetup(packages: {command: string; errorMessage: string}[]) {
   for (const pkg of packages) {
     exec(`${pkg.command} --version`, (err, stderr) => {

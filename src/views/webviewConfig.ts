@@ -19,7 +19,6 @@ export class SolverConfigProvider implements vscode.WebviewViewProvider {
 }
 
 export function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri, uiUri: string): string {
-  console.log(webview);
     const uiFolderPath = vscode.Uri.joinPath( extensionUri, uiUri);
     const indexHtmlPath = vscode.Uri.joinPath(uiFolderPath, 'index.html');
 
@@ -30,7 +29,7 @@ export function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri
       const assetPath = vscode.Uri.joinPath(uiFolderPath, file);
       const uri = webview.asWebviewUri(assetPath);
       return `${attr}="${uri}"`;
-    });
+    }).replace(/crossorigin/g, '');
 
     return html;
   }

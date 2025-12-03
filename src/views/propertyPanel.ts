@@ -5,6 +5,9 @@ import { spawn } from 'node:child_process';
 import useStore from '../store/store';
 import { FolderNode, FileNode, PropertyNode } from '../store/types';
 
+// Import the store to manage the file tree state
+const { createFileTree, addPropertyList, updatePropertyNode } = useStore.getState();
+
 // Create a diagnostic collection for displaying icons in the editor gutter
 const diagnostics = vscode.languages.createDiagnosticCollection('afvDiagnostics');
 
@@ -63,9 +66,6 @@ export async function registerPropertyPanel(testCtrl: vscode.TestController, con
     }, true);
 }
 
-// Import the store to manage the file tree state
-const { createFileTree } = useStore.getState();
-
 // Function to get the list of Lean files in the workspace and update the file tree
 async function constructTreeList(){
     // Get the root folder of the workspace
@@ -88,8 +88,6 @@ async function readFolderRecursively(currentPath: string): Promise<FolderNode>{
     const folderNode: FolderNode = {
         label: path.basename(currentPath),
         path: currentPath,
-        timeToExecute: '',
-        status: 'unchecked',
         type: 'folder',
         children: [] as Array<FileNode | FolderNode>,
     };
@@ -110,20 +108,22 @@ async function readFolderRecursively(currentPath: string): Promise<FolderNode>{
                 const fileNode: FileNode = {
                     label: child.name,
                     path: itemPath,
-                    timeToExecute: '',
-                    status: 'unchecked',
                     type: 'file',
                     children: props.map(prop => ({
                         label: prop.name,
                         position: prop.line,
                         path: itemPath,
-                        parentFile: child.name,
-                        timeToExecute: '',
                         status: 'unchecked',
+                        time: 0,
+                        parentFile: child.name,
                         type: 'property',
                     })),
                 };
                 folderNode.children.push(fileNode);
+                addPropertyList({
+                    [child.name]: fileNode.children.map(p => p.label)
+                });
+
             }
         }
     }
@@ -217,16 +217,16 @@ async function startTestRun(testCtrl: vscode.TestController, request: vscode.Tes
             try {
                 const result = JSON.parse(line);
                 const testName = result['theorem'].split('.').pop();
-                console.log(`Processing result for test: ${result}`);
                 const testItem = testItems.find(item => item.label === testName);
 
                 if (testItem) {
                     if (result['status'] === 'valid') {
                         run.passed(testItem);
+                        updatePropertyNode(testItem.uri!.path, testItem.label, 'valid', result['time']);
                         diagnostics.delete(testItem.uri!);
                     } else if (result['status'] === 'falsified') {
                         run.failed(testItem, new vscode.TestMessage('falsified property'));
-
+                        updatePropertyNode(testItem.uri!.path, testItem.label, 'falsified', result['time'], result['cex']);
                         const dia = new vscode.Diagnostic(
                             new vscode.Range(new vscode.Position(0, 0), new vscode.Position(0, 1)),
                             `Property falsified: ${testItem.label}`,

@@ -66,6 +66,7 @@
       "editor/lineNumber/context": [
          {
           "command": "afv.openPropertyResults",
+          "when": "(testResultState == 'passed') || (testResultState == 'failed')",
           "group": "navigation"
         }
       ],

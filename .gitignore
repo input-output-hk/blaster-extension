@@ -31,6 +31,7 @@ dist-ssr
 
 # VS Code extension directories and files
 out
+build
 dist
 node_modules
 .vscode-test/
