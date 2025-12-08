@@ -16,5 +16,5 @@
 		// "noUnusedParameters": true,  /* Report errors on unused parameters. */
 		"jsx": "react-jsx",
 	},
-	"exclude": ["webview-ui", "node_modules", ".vscode-test", "src/test", "src/docs"]
+	"exclude": ["webview-ui", "node_modules", ".vscode-test", "src/test", "src/docs", "server"]
 }

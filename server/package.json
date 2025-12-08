@@ -1,0 +1,13 @@
+{
+	"name": "afv-server",
+	"version": "0.0.1",
+	"engines": {
+		"node": "*"
+	},
+	"dependencies": {
+		"vscode-jsonrpc": "^8.2.1"
+	},
+	"scripts": {
+		"build": "tsc"
+	}
+}

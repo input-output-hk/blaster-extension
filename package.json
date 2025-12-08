@@ -47,7 +47,7 @@
           "when": "(testResultState == 'passed' && testId =~ /property:.*/) || (testResultState == 'failed' && testId =~ /property:.*/)",
           "group": "navigation"
         },
-         {
+        {
           "command": "afv.openPropertyResults",
           "when": "(testResultState == 'passed' && testId =~ /property:.*/) || (testResultState == 'failed' && testId =~ /property:.*/)",
           "group": "inline"
@@ -64,7 +64,7 @@
         }
       ],
       "editor/lineNumber/context": [
-         {
+        {
           "command": "afv.openPropertyResults",
           "when": "(testResultState == 'passed') || (testResultState == 'failed')",
           "group": "navigation"
@@ -75,9 +75,9 @@
           "command": "afv.openPropertyResults",
           "when": "testing.hasAnyResults && activeViewlet == 'workbench.view.extension.test'"
         },
-         {
-        "command": "afv.runAll",
-        "when": "testing.hasRunnableTests && activeViewlet == 'workbench.view.extension.test'"
+        {
+          "command": "afv.runAll",
+          "when": "testing.hasRunnableTests && activeViewlet == 'workbench.view.extension.test'"
         }
       ]
     },
@@ -116,9 +116,10 @@
     ]
   },
   "scripts": {
-    "install:all": "npm install && cd webview-ui && npm install",
+    "install:all": "npm install && cd webview-ui && npm install && cd ../server && npm install",
     "start:webview": "cd webview-ui && npm run start",
     "build:webview": "cd webview-ui && npm run build",
+    "build:server": "cd server && npm run build",
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
@@ -139,6 +140,6 @@
   },
   "dependencies": {
     "all": "^0.0.0",
-    "zustand": "^5.0.6"
+    "vscode-jsonrpc": "^8.2.1"
   }
 }

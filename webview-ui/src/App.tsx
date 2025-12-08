@@ -1,22 +1,18 @@
-import { useState, useEffect } from 'react'
-import type { WebviewApi, PropertyNode } from '../index.d.ts';
+import { useState, useEffect } from 'react';
 import Tabs from './components/Tabs';
 import TableView from './views/tableView.tsx';
+
+import type { WebviewApi, TheoremResult } from '../index.d.ts';
 
 interface AppProps {
   vscode: WebviewApi<unknown>;
 }
 
+const TABS = [{label: 'Counterexample Trace'}, {label: 'Transaction Graph'}, {label: 'Run Property Info'}];
+
 function App({ vscode }: AppProps) {
-  const [testItem, setTestItem] = useState({} as PropertyNode);
-  console.log(testItem);
-
-  const tabs = [{label: 'Run Property Info'}];
-  if (testItem.status === 'falsified') {
-    tabs.unshift({label: 'Counterexample Trace'}, {label: 'Transaction Graph'});
-  }
-
-  const [selectedTab, setSelectedTab] = useState(tabs[0].label);
+  const [testItem, setTestItem] = useState<TheoremResult|null>(null);
+  const [selectedTab, setSelectedTab] = useState<number>(0);
 
   useEffect(() => {
     // Notify extension that webview is ready
@@ -36,20 +32,27 @@ function App({ vscode }: AppProps) {
     return () => {
       window.removeEventListener('message', messageHandler);
     };
-  }, []);
+  }, [vscode]);
 
+  if (!testItem) {
+    return (
+      <div className="resultsView p-4">
+        <h3 className='text-lg font-semibold'>No property selected</h3>
+      </div>
+    )
+  }
 
   return (
     <div className="resultsView p-4">
-      <h3 className='text-lg font-semibold'>The {testItem.label} property is <span className={`${testItem.status == "valid" ? "text-success" : "text-error"}`}>{testItem.status}</span></h3>
+      <h3 className='text-lg font-semibold'>The {testItem.theorem.label} property is <span className={`${testItem.status == "valid" ? "text-success" : "text-error"}`}>{testItem.status}</span></h3>
       <p className='text-variant'>Open the property switcher to select a new property to inspect</p>
       <div className='border-white/80 border-2 m-2 w-[200px] p-2 mt-4'>
         select box placeholder
       </div>
       <Tabs
         activeTab={selectedTab}
-        onChange={(e) => setSelectedTab(e.target.id)}
-        tabs={tabs}
+        onChange={setSelectedTab}
+        tabs={TABS}
       />
       {<TableView />}
     </div>

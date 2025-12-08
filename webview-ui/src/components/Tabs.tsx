@@ -1,5 +1,4 @@
 'use client';
-import type { ChangeEvent } from 'react';
 import cn from '../utils/styleUtil';
 
 interface TabProps {
@@ -9,22 +8,22 @@ interface TabProps {
 
 interface TabsProps {
     tabs: TabProps[];
-    activeTab?: string;
-    onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+    activeTab?: number;
+    onChange: (activeTab: number) => void;
     direction?: 'vertical' | 'horizontal';
 }
 
 export default function Tabs({ direction = 'horizontal', tabs, activeTab, onChange }: TabsProps) {
     
     return <div className={`flex ${direction === 'vertical' ? 'flex-col' : 'flex-row gap-3'}`}>
-        {tabs.map((tab) => (
+        {tabs.map((tab, index) => (
             <button
                 key={tab.label}
-                id={tab.label}
+                id={index.toString()}
                 className={cn(`inline-flex items-center justify-center p-2 whitespace-nowrap text-sm font-medium text-onSurface gap-2
-                    ${(tab.label !== activeTab) && 'hover:border-b-2 hover:border-outline'} 
-                    ${(tab.label === activeTab) && 'border-b-2 border-primary'}`,)}
-                onClick={(e) => onChange(e as unknown as ChangeEvent<HTMLInputElement>)}
+                    ${(index !== activeTab) && 'hover:border-b-2 hover:border-outline'} 
+                    ${(index === activeTab) && 'border-b-2 border-primary'}`,)}
+                onClick={() => onChange(index)}
                 disabled={tab.disabled}>
                 {tab.label}
             </button>
