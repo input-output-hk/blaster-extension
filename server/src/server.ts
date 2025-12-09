@@ -129,7 +129,7 @@ const readFileNode = (path: string): FileNode => {
 };
 
 const connection = rpc.createMessageConnection(
-  new rpc.StreamMessageReader(process.stdin),
+	new rpc.StreamMessageReader(process.stdin),
 	new rpc.StreamMessageWriter(process.stdout)
 );
 
