@@ -4,10 +4,12 @@ import * as vscode from 'vscode';
 import RpcClient from './services/rpcClient';
 import SolverConfig from './modules/solverConfig';
 import PropertyPanel from './modules/propertyPanel';
+import TestingController from './modules/testingController';
 
 export type AfvContext = {
   extension: vscode.ExtensionContext;
   rpcClient: RpcClient;
+  testingController: TestingController;
   propertyPanel: PropertyPanel;
   solverConfig: SolverConfig;
 };
@@ -25,10 +27,14 @@ export function activate(context: vscode.ExtensionContext) {
   // Init property panel
   const propertyPanel = new PropertyPanel();
 
+  // Init testing controller
+  const testingController = new TestingController();
+
   // Init context
   const afvContext: AfvContext = {
     extension: context,
     rpcClient,
+    testingController,
     propertyPanel,
     solverConfig
   };
@@ -39,7 +45,8 @@ export function activate(context: vscode.ExtensionContext) {
     // Activate modules
     solverConfig.activate(afvContext);
     propertyPanel.activate(afvContext);
-  
+    testingController.activate(afvContext);
+    
   });
 }
 

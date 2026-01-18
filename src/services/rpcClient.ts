@@ -9,7 +9,7 @@ class RpcClient {
   private connection: rpc.MessageConnection;
 
   constructor(context: vscode.ExtensionContext) {
-    this.childProcess = cp.spawn('node', [context.asAbsolutePath('server/out/server.js')]);
+    this.childProcess = cp.spawn(context.asAbsolutePath(`bin/afv-rpc-api-${process.arch}`));
     this.connection = rpc.createMessageConnection(
       new rpc.StreamMessageReader(this.childProcess.stdout!),
       new rpc.StreamMessageWriter(this.childProcess.stdin!)
