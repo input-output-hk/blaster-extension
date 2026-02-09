@@ -2,16 +2,16 @@ import * as vscode from 'vscode';
 
 import { AfvContext } from '../extension';
 
-const ROOT_TAG = new vscode.TestTag('root');
-const FOLDER_TAG = new vscode.TestTag('folder');
-const FILE_TAG = new vscode.TestTag('file');
-const PROPERTY_TAG = new vscode.TestTag('property');
+export const ROOT_TAG = new vscode.TestTag('root');
+export const FOLDER_TAG = new vscode.TestTag('folder');
+export const FILE_TAG = new vscode.TestTag('file');
+export const PROPERTY_TAG = new vscode.TestTag('property');
 
 export default class TestingController {
   private testCtrl: vscode.TestController;
   private diagnostics: vscode.DiagnosticCollection;
   private testRun: vscode.TestRun | null = null;
-  private testQueue: vscode.TestItem[] = [];
+  private testResults: Map<string, TheoremResult> = new Map();
 
   constructor() {
     this.testCtrl = vscode.tests.createTestController('propertyPanel', 'Property Panel');
@@ -22,18 +22,19 @@ export default class TestingController {
     context.extension.subscriptions.push(this.testCtrl, this.diagnostics);
 
     context.rpcClient.onTestResult((result: TheoremResult) => {
-      if (this.testRun !== null) {
-        const testItem = this.testQueue.find(item => item.id === `property:${result.theorem.id}`);
-        if (testItem) {
-          if (result.status === 'valid') {
-            this.testRun.passed(testItem, result.time);
-          }
-          else if (result.status === 'invalid') {
-            const message = new vscode.TestMessage(`Failed`);
-            this.testRun.failed(testItem, message, result.time);
-          }
+      const testResult = this.testResults.get(result.theorem.id);
+      if (testResult) {
+        testResult.status = result.status;
+        testResult.time = result.time;
+
+        if (this.testRun !== null) {
+          this.updateTestItem(result);
         }
       }
+    });
+
+    context.rpcClient.onWorkspaceUpdate((workspaces: Workspace[]) => {
+      this.registerWorkspaces(workspaces);
     });
 
     this.testCtrl.createRunProfile('Run Proofs', vscode.TestRunProfileKind.Run, async (request, token) => {
@@ -41,10 +42,15 @@ export default class TestingController {
     }, true);
 
     context.rpcClient.fetchWorkspaces().then((workspaces: Workspace[]) => {
-      for (const workspace of workspaces) {
-        this.registerWorkspace(workspace);
-      }
+      this.registerWorkspaces(workspaces);
     });
+  }
+
+  private registerWorkspaces(workspaces: Workspace[]) {
+    this.testResults.clear();
+    for (const workspace of workspaces) {
+      this.registerWorkspace(workspace);
+    }
   }
 
   private registerWorkspace(workspace: Workspace) {
@@ -79,6 +85,11 @@ export default class TestingController {
             theorem.range.endCharacter
           );
           childItem.children.add(theoremItem);
+
+          this.testResults.set(theorem.id, {
+            theorem: theorem,
+            status: 'undetermined',
+          });
         }
         parentItem.children.add(childItem);
       }
@@ -86,25 +97,56 @@ export default class TestingController {
   }
 
   private startTestRun(context: AfvContext, request: vscode.TestRunRequest, token: vscode.CancellationToken) {
-    this.testQueue = [];
+    const runTheoremIds = new Set<string>();
+
+    const startTestRunRecursively = (items: vscode.TestItem[]) => {
+      for (const item of items) {
+        if (item.tags.includes(PROPERTY_TAG)) {
+          this.testRun?.started(item);
+          const theoremId = item.id.replace('property:', '');
+          const testResult = this.testResults.get(theoremId);
+          if (testResult) {
+            testResult.status = 'running';
+            testResult.time = 0;
+            runTheoremIds.add(theoremId);
+          }
+        }
+        startTestRunRecursively(Array.from(item.children).map(([_, child]) => child));
+      }
+    };
 
     if (this.testRun === null) {
       this.testRun = this.testCtrl.createTestRun(request);
     }
 
-    let testItems = request.include?.map(t => t) ?? Array.from(this.testCtrl.items).map(([_, item]) => item);
+    startTestRunRecursively(
+      request.include?.map(t => t) ?? Array.from(this.testCtrl.items).map(([_, item]) => item)
+    );
 
-    for (const testItem of testItems) {
-      if (testItem.tags.includes(PROPERTY_TAG)) {
-        this.testQueue.push(testItem);
+    context.rpcClient.runTheorem(Array.from(runTheoremIds));
+  }
+
+  private updateTestItem(result: TheoremResult) {
+    const updateTestItemRecursively = (items: vscode.TestItem[]) => {
+      for (const item of items) {
+        if (item.id === `property:${result.theorem.id}`) {
+          if (result.status === 'valid') {
+            this.testRun!.passed(item, result.time);
+          } else if (result.status === 'invalid') {
+            const message = new vscode.TestMessage(`Failed`);
+            this.testRun!.failed(item, message, result.time);
+          }
+          return;
+        }
+        updateTestItemRecursively(Array.from(item.children).map(([_, child]) => child));
       }
-      testItems.push(...Array.from(testItem.children).map(([_, item]) => item));
-    }
+    };
 
-    for (const test of this.testQueue) {
-      this.testRun.started(test);
-    }
+    updateTestItemRecursively(Array.from(this.testCtrl.items).map(([_, item]) => item));
 
-    context.rpcClient.runTheorem(this.testQueue.map(item => item.id.replace('property:', '')));
+    if (Array.from(this.testResults.values()).every(result => result.status !== 'running')) {
+      this.testRun?.end();
+      this.testRun = null;
+    }
   }
 }

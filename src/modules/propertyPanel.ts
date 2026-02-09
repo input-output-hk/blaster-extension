@@ -2,8 +2,7 @@ import * as vscode from 'vscode';
 
 import { AfvContext } from '../extension';
 import { getWebviewHtml } from '../utils/webview';
-
-const PROPERTY_TAG = new vscode.TestTag('property');
+import { PROPERTY_TAG } from './testingController';
 
 export default class PropertyPanel {
   private panel: vscode.WebviewPanel | null = null;
@@ -16,7 +15,7 @@ export default class PropertyPanel {
   }
 
   private registerCommand(context: AfvContext): vscode.Disposable {
-    return vscode.commands.registerCommand('afv.openPropertyResults', (testItem?: vscode.TestItem) => {
+    return vscode.commands.registerCommand('afv.openPropertyResults', (testItem?: vscode.TestItem) => {      
       // if webview panel is already open
       if (this.panel !== null) {
         const columnToShowIn = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;

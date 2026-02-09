@@ -17,7 +17,19 @@ export type AfvContext = {
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
+  // Only proceed if compatible binary exists
+  vscode.workspace.fs.stat(vscode.Uri.file(context.asAbsolutePath(`bin/afv-rpc-api-${process.platform}-${process.arch}`)))
+    .then(
+      () => {
+        initializeExtension(context);
+      },
+      () => {
+        vscode.window.showErrorMessage('Compatible AFV binary not found. Your platform/architecture is not supported.');
+      }
+    );
+}
 
+function initializeExtension(context: vscode.ExtensionContext) {
   // Init rpc client
   const rpcClient = new RpcClient(context);
 

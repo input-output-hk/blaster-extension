@@ -9,12 +9,29 @@ class RpcClient {
   private connection: rpc.MessageConnection;
 
   constructor(context: vscode.ExtensionContext) {
-    this.childProcess = cp.spawn(context.asAbsolutePath(`bin/afv-rpc-api-${process.arch}`));
+    this.childProcess = cp.spawn(context.asAbsolutePath(`bin/afv-rpc-api-${process.platform}-${process.arch}`));
+
+    this.childProcess.stdout?.on('data', (data) => {
+      console.log(`\nRPC STDOUT>\n${data}`);
+      return data;
+    });
+    
+    this.childProcess.stderr?.on('data', (data) => {
+      console.log(`\nRPC STDERR>\n${data}`);
+      return data;
+    });
+    
     this.connection = rpc.createMessageConnection(
       new rpc.StreamMessageReader(this.childProcess.stdout!),
       new rpc.StreamMessageWriter(this.childProcess.stdin!)
     );
     this.connection.listen();
+
+    this.connection.trace(rpc.Trace.Verbose, {
+      log: (message: string, data?: string) => {
+        console.log(`\nRPC TRACE>\n${message}\n${data}`);
+      }
+    });
   }
 
   public async initialize(context: AfvContext): Promise<void> {
@@ -24,7 +41,11 @@ class RpcClient {
 
     await this.initializeWorkspace(vscode.workspace.workspaceFolders || []);
 
-    // TODO: Add listeners for workspace changes
+    context.extension.subscriptions.push(
+      vscode.workspace.onDidChangeWorkspaceFolders(async () => {
+        await this.updateWorkspace(vscode.workspace.workspaceFolders || []);
+      })
+    );
 
     return promise;
   }
@@ -32,6 +53,12 @@ class RpcClient {
   public onTestResult(callback: (result: TheoremResult) => void): void {
     this.connection.onNotification('testResult', (result: TheoremResult) => {
       callback(result);
+    });
+  }
+
+  public onWorkspaceUpdate(callback: (workspaces: Workspace[]) => void): void {
+    this.connection.onNotification('workspaceUpdated', (workspaces: Workspace[]) => {
+      callback(workspaces);
     });
   }
 
@@ -52,14 +79,14 @@ class RpcClient {
     return await this.connection.sendRequest(request, null);
   }
 
-  public runTheorem(theoremsId: string[]): void {
-    const notification = new rpc.NotificationType<string[]>('runTheorem');
-    this.connection.sendNotification(notification, theoremsId);
+  public runTheorem(theoremIds: string[]): void {
+    const notification = new rpc.NotificationType<RunTheoremParams>('runTheorem');
+    this.connection.sendNotification(notification, { theoremIds });
   }
 
   public async fetchTheoremResult(theoremId: string): Promise<TheoremResult> {
-    const request = new rpc.RequestType<string, TheoremResult, void>('getTheoremResult');
-    return await this.connection.sendRequest(request, theoremId);
+    const request = new rpc.RequestType<FetchTheoremResultParams, TheoremResult, void>('getTheoremResult');
+    return await this.connection.sendRequest(request, { theoremId });
   }
 }
 
