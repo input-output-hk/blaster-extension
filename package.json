@@ -27,14 +27,14 @@
         "contents": "No Properties Detected. \nAdd the properties to your file using the [Universal Annotation Language](https://github.com/input-output-hk/sc-fvt) then save your file to display the properties in this property panel."
       },
       {
-        "view": "solverConfigurations",
+        "view": "solver-config",
         "contents": "Solver Configurations view not registerd."
       }
     ],
     "views": {
       "test": [
         {
-          "id": "solverConfigurations",
+          "id": "solver-config",
           "name": "Solver Configurations",
           "type": "webview"
         }
@@ -47,7 +47,7 @@
           "when": "(testResultState == 'passed' && testId =~ /property:.*/) || (testResultState == 'failed' && testId =~ /property:.*/)",
           "group": "navigation"
         },
-         {
+        {
           "command": "afv.openPropertyResults",
           "when": "(testResultState == 'passed' && testId =~ /property:.*/) || (testResultState == 'failed' && testId =~ /property:.*/)",
           "group": "inline"
@@ -64,7 +64,7 @@
         }
       ],
       "editor/lineNumber/context": [
-         {
+        {
           "command": "afv.openPropertyResults",
           "when": "(testResultState == 'passed') || (testResultState == 'failed')",
           "group": "navigation"
@@ -75,9 +75,9 @@
           "command": "afv.openPropertyResults",
           "when": "testing.hasAnyResults && activeViewlet == 'workbench.view.extension.test'"
         },
-         {
-        "command": "afv.runAll",
-        "when": "testing.hasRunnableTests && activeViewlet == 'workbench.view.extension.test'"
+        {
+          "command": "afv.runAll",
+          "when": "testing.hasRunnableTests && activeViewlet == 'workbench.view.extension.test'"
         }
       ]
     },
@@ -116,15 +116,7 @@
     ]
   },
   "scripts": {
-    "install:all": "npm install && cd webview-ui && npm install",
-    "start:webview": "cd webview-ui && npm run start",
-    "build:webview": "cd webview-ui && npm run build",
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src",
-    "test": "vscode-test"
+    "compile": "npm install && tsc -p ./ && cd webview-ui && npm install && npm run build"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
@@ -139,6 +131,6 @@
   },
   "dependencies": {
     "all": "^0.0.0",
-    "zustand": "^5.0.6"
+    "vscode-jsonrpc": "^8.2.1"
   }
 }
