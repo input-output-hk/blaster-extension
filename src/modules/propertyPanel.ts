@@ -23,7 +23,7 @@ export default class PropertyPanel {
 
         if (testItem && testItem.tags.includes(PROPERTY_TAG)) {
           context.rpcClient.fetchTheoremResult(testItem.id.replace('property:', '')).then((result: TheoremResult) => {
-            this.panel!.webview.postMessage({ type: 'loadPropertyResults', payload: result });
+            this.panel!.webview.postMessage({ type: 'theorem-result', payload: result });
           });
         }
 
@@ -41,15 +41,15 @@ export default class PropertyPanel {
         }
       );
 
-      this.panel.webview.html = getWebviewHtml(this.panel.webview, context.extension.extensionUri, 'build');
+      this.panel.webview.html = getWebviewHtml(this.panel.webview, context.extension.extensionUri, 'propertyPanel');
 
       // Listen for messages from the webview
       this.panel.webview.onDidReceiveMessage(
         message => {
-          if (message.type === 'webviewReady') {
+          if (message.type === 'webview-ready') {
             if (testItem && testItem.tags.includes(PROPERTY_TAG)) {
               context.rpcClient.fetchTheoremResult(testItem.id.replace('property:', '')).then((result: TheoremResult) => {
-                this.panel!.webview.postMessage({ type: 'loadPropertyResults', payload: result });
+                this.panel!.webview.postMessage({ type: 'theorem-result', payload: result });
               });
             }
           }

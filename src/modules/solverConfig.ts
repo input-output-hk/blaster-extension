@@ -16,7 +16,7 @@ class SolverConfigProvider implements vscode.WebviewViewProvider {
       localResourceRoots: [this.extensionUri],
     };
 
-    webviewView.webview.html = getWebviewHtml(webviewView.webview, this.extensionUri, 'build/solverOptions');
+    webviewView.webview.html = getWebviewHtml(webviewView.webview, this.extensionUri, 'solverConfig');
   }
 }
 
@@ -25,7 +25,7 @@ export default class SolverConfig {
   
   public activate(context: AfvContext) {
     const provider = new SolverConfigProvider(context.extension.extensionUri);
-    const disposable = vscode.window.registerWebviewViewProvider('solverConfigurations', provider);
+    const disposable = vscode.window.registerWebviewViewProvider('solver-config', provider);
     context.extension.subscriptions.push(disposable);
   }
 }
