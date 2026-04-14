@@ -5,6 +5,7 @@ import RpcClient from './services/rpcClient';
 import SolverConfig from './modules/solverConfig';
 import PropertyPanel from './modules/propertyPanel';
 import TestingController from './modules/testingController';
+import { getBinaryPath } from './utils/binary';
 
 export type AfvContext = {
   extension: vscode.ExtensionContext;
@@ -18,7 +19,7 @@ export type AfvContext = {
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
   // Only proceed if compatible binary exists
-  vscode.workspace.fs.stat(vscode.Uri.file(context.asAbsolutePath(`bin/afv-rpc-api-${process.platform}-${process.arch}`)))
+  vscode.workspace.fs.stat(vscode.Uri.file(context.asAbsolutePath(getBinaryPath())))
     .then(
       () => {
         initializeExtension(context);

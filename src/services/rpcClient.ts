@@ -3,13 +3,14 @@ import * as cp from 'child_process';
 import * as rpc from 'vscode-jsonrpc/node';
 
 import { AfvContext } from '../extension';
-
+import { getBinaryPath } from '../utils/binary';
+  
 class RpcClient {
   private childProcess: cp.ChildProcess;
   private connection: rpc.MessageConnection;
 
   constructor(context: vscode.ExtensionContext) {
-    this.childProcess = cp.spawn(context.asAbsolutePath(`bin/afv-rpc-api-${process.platform}-${process.arch}`));
+    this.childProcess = cp.spawn(context.asAbsolutePath(getBinaryPath()));
 
     this.childProcess.stdout?.on('data', (data) => {
       console.log(`\nRPC STDOUT>\n${data}`);
@@ -25,6 +26,7 @@ class RpcClient {
       new rpc.StreamMessageReader(this.childProcess.stdout!),
       new rpc.StreamMessageWriter(this.childProcess.stdin!)
     );
+
     this.connection.listen();
 
     this.connection.trace(rpc.Trace.Verbose, {
@@ -35,6 +37,11 @@ class RpcClient {
   }
 
   public async initialize(context: AfvContext): Promise<void> {
+
+    await new Promise<void>((resolve) =>
+      this.connection.onNotification('serverReady', resolve)
+    );
+
     const promise = new Promise<void>((resolve) =>
       this.connection.onNotification('workspaceInitialized', resolve)
     );

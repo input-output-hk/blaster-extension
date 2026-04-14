@@ -2,8 +2,8 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 
 export function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri, webviewName: string): string {
-  const webviewFolderPath = vscode.Uri.joinPath( extensionUri, 'build');
-  const indexHtmlPath = vscode.Uri.joinPath(webviewFolderPath, 'entrypoint', `${webviewName}.html`);
+  const webviewFolderPath = vscode.Uri.joinPath(extensionUri, 'build');
+  const indexHtmlPath = vscode.Uri.joinPath(webviewFolderPath, `${webviewName}.html`);
 
   let html = fs.readFileSync(indexHtmlPath.fsPath, 'utf-8');
 
