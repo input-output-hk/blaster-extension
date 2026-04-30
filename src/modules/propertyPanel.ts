@@ -38,6 +38,7 @@ export default class PropertyPanel {
         {
           enableScripts: true,
           retainContextWhenHidden: true,
+          localResourceRoots: [context.extension.extensionUri],
         }
       );
 
