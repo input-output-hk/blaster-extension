@@ -1,7 +1,7 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import RpcClient from './services/rpcClient';
+import TestingStore from './services/testingStore';
 import SolverConfig from './modules/solverConfig';
 import PropertyPanel from './modules/propertyPanel';
 import TestingController from './modules/testingController';
@@ -9,7 +9,7 @@ import { getBinaryPath } from './utils/binary';
 
 export type AfvContext = {
   extension: vscode.ExtensionContext;
-  rpcClient: RpcClient;
+  testingStore: TestingStore;
   testingController: TestingController;
   propertyPanel: PropertyPanel;
   solverConfig: SolverConfig;
@@ -31,8 +31,8 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 function initializeExtension(context: vscode.ExtensionContext) {
-  // Init rpc client
-  const rpcClient = new RpcClient(context);
+  // Init testing store
+  const testingStore = new TestingStore(context);
 
   // Init solver config
   const solverConfig = new SolverConfig();
@@ -46,14 +46,14 @@ function initializeExtension(context: vscode.ExtensionContext) {
   // Init context
   const afvContext: AfvContext = {
     extension: context,
-    rpcClient,
+    testingStore,
     testingController,
     propertyPanel,
     solverConfig
   };
 
   // Init workspaces
-  rpcClient.initialize(afvContext).then(() => {
+  testingStore.initialize(afvContext).then(() => {
 
     // Activate modules
     solverConfig.activate(afvContext);

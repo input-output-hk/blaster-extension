@@ -102,11 +102,23 @@ const PropertyPanel: React.FC<Props> = ({ vscode }) => {
   useEffect(() => {
     vscode.postMessage({ type: "webview-ready" });
 
+    // Example of sending a message to the extension when a theorem is selected
+    // vscode.postMessage({ type: "change-theorem", payload: { theoremId: "example-theorem-id" } });
+
+    // Example of sending a message to the extension to run the current theorem
+    // vscode.postMessage({ type: "run-theorem" });
+
     const messageHandler = (event: MessageEvent) => {
       const message = event.data;
       if (message.type === "theorem-result") {
         setResult(message.payload);
         setDetails(getTheoremResultDetails(message.payload));
+        
+        console.log("Received theorem result:", message.payload);
+      }
+      if (message.type === "workspaces") {
+        // TODO: Implement handling of workspaces data if needed
+        console.log("Received workspaces:", message.payload);
       }
     };
 

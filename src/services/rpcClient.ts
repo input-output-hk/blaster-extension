@@ -2,10 +2,9 @@ import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import * as rpc from 'vscode-jsonrpc/node';
 
-import { AfvContext } from '../extension';
 import { getBinaryPath } from '../utils/binary';
   
-class RpcClient {
+export default class RpcClient {
   private childProcess: cp.ChildProcess;
   private connection: rpc.MessageConnection;
 
@@ -36,7 +35,7 @@ class RpcClient {
     });
   }
 
-  public async initialize(context: AfvContext): Promise<void> {
+  public async initialize(): Promise<void> {
 
     await new Promise<void>((resolve) =>
       this.connection.onNotification('serverReady', resolve)
@@ -48,11 +47,12 @@ class RpcClient {
 
     await this.initializeWorkspace(vscode.workspace.workspaceFolders || []);
 
-    context.extension.subscriptions.push(
-      vscode.workspace.onDidChangeWorkspaceFolders(async () => {
-        await this.updateWorkspace(vscode.workspace.workspaceFolders || []);
-      })
-    );
+    // TODO: Implement handling of workspace changes
+    // context.extension.subscriptions.push(
+    //   vscode.workspace.onDidChangeWorkspaceFolders(async () => {
+    //     await this.updateWorkspace(vscode.workspace.workspaceFolders || []);
+    //   })
+    // );
 
     return promise;
   }
@@ -63,11 +63,12 @@ class RpcClient {
     });
   }
 
-  public onWorkspaceUpdate(callback: (workspaces: Workspace[]) => void): void {
-    this.connection.onNotification('workspaceUpdated', (workspaces: Workspace[]) => {
-      callback(workspaces);
-    });
-  }
+  // TODO: Implement handling of workspace changes
+  // public onWorkspaceUpdate(callback: (workspaces: Workspace[]) => void): void {
+  //   this.connection.onNotification('workspaceUpdated', (workspaces: Workspace[]) => {
+  //     callback(workspaces);
+  //   });
+  // }
 
   private async initializeWorkspace(workspaces: readonly vscode.WorkspaceFolder[]): Promise<void> {
     const notification = new rpc.NotificationType<WorkspaceParams>('initializeWorkspace');
@@ -75,11 +76,12 @@ class RpcClient {
     return this.connection.sendNotification(notification, { workspacePaths });
   }
 	
-  private async updateWorkspace(workspaces: readonly vscode.WorkspaceFolder[]): Promise<void> {
-    const notification = new rpc.NotificationType<WorkspaceParams>('updateWorkspace');
-    const workspacePaths = workspaces?.map(folder => folder.uri.fsPath) || [];
-    return this.connection.sendNotification(notification, { workspacePaths });
-  }
+  // TODO: Implement handling of workspace changes
+  // private async updateWorkspace(workspaces: readonly vscode.WorkspaceFolder[]): Promise<void> {
+  //   const notification = new rpc.NotificationType<WorkspaceParams>('updateWorkspace');
+  //   const workspacePaths = workspaces?.map(folder => folder.uri.fsPath) || [];
+  //   return this.connection.sendNotification(notification, { workspacePaths });
+  // }
 	
   public async fetchWorkspaces(): Promise<Workspace[]> {
     const request = new rpc.RequestType<void, Workspace[], void>('getWorkspace');
@@ -96,5 +98,3 @@ class RpcClient {
     return await this.connection.sendRequest(request, { theoremId });
   }
 }
-
-export default RpcClient;

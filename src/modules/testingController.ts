@@ -11,7 +11,6 @@ export default class TestingController {
   private testCtrl: vscode.TestController;
   private diagnostics: vscode.DiagnosticCollection;
   private testRun: vscode.TestRun | null = null;
-  private testResults: Map<string, TheoremResult> = new Map();
 
   constructor() {
     this.testCtrl = vscode.tests.createTestController('propertyPanel', 'Property Panel');
@@ -21,36 +20,22 @@ export default class TestingController {
   public activate(context: AfvContext) {
     context.extension.subscriptions.push(this.testCtrl, this.diagnostics);
 
-    context.rpcClient.onTestResult((result: TheoremResult) => {
-      const testResult = this.testResults.get(result.theorem.id);
-      if (testResult) {
-        testResult.status = result.status;
-        testResult.time = result.time;
+    context.testingStore.onTheoremUpdate((result: TheoremResult) => this.updateTestItem(context, result));
 
-        if (this.testRun !== null) {
-          this.updateTestItem(result);
-        }
+    // TODO: Implement handling of workspace changes
+    // context.rpcClient.onWorkspaceUpdate((workspaces: Workspace[]) => {
+    //   this.registerWorkspaces(workspaces);
+    // });
+
+    context.testingStore.fetchWorkspaces().then((workspaces: Workspace[]) => {
+      for (const workspace of workspaces) {
+        this.registerWorkspace(workspace);
       }
-    });
-
-    context.rpcClient.onWorkspaceUpdate((workspaces: Workspace[]) => {
-      this.registerWorkspaces(workspaces);
     });
 
     this.testCtrl.createRunProfile('Run Proofs', vscode.TestRunProfileKind.Run, async (request, token) => {
       this.startTestRun(context, request, token);
     }, true);
-
-    context.rpcClient.fetchWorkspaces().then((workspaces: Workspace[]) => {
-      this.registerWorkspaces(workspaces);
-    });
-  }
-
-  private registerWorkspaces(workspaces: Workspace[]) {
-    this.testResults.clear();
-    for (const workspace of workspaces) {
-      this.registerWorkspace(workspace);
-    }
   }
 
   private registerWorkspace(workspace: Workspace) {
@@ -85,11 +70,6 @@ export default class TestingController {
             theorem.range.endCharacter
           );
           childItem.children.add(theoremItem);
-
-          this.testResults.set(theorem.id, {
-            theorem: theorem,
-            status: 'undetermined',
-          });
         }
         parentItem.children.add(childItem);
       }
@@ -104,12 +84,7 @@ export default class TestingController {
         if (item.tags.includes(PROPERTY_TAG)) {
           this.testRun?.started(item);
           const theoremId = item.id.replace('property:', '');
-          const testResult = this.testResults.get(theoremId);
-          if (testResult) {
-            testResult.status = 'running';
-            testResult.time = 0;
-            runTheoremIds.add(theoremId);
-          }
+          runTheoremIds.add(theoremId);
         }
         startTestRunRecursively(Array.from(item.children).map(([_, child]) => child));
       }
@@ -123,10 +98,10 @@ export default class TestingController {
       request.include?.map(t => t) ?? Array.from(this.testCtrl.items).map(([_, item]) => item)
     );
 
-    context.rpcClient.runTheorem(Array.from(runTheoremIds));
+    context.testingStore.runTheorem(Array.from(runTheoremIds));
   }
 
-  private updateTestItem(result: TheoremResult) {
+  private updateTestItem(context: AfvContext, result: TheoremResult) {
     const updateTestItemRecursively = (items: vscode.TestItem[]) => {
       for (const item of items) {
         if (item.id === `property:${result.theorem.id}`) {
@@ -144,7 +119,7 @@ export default class TestingController {
 
     updateTestItemRecursively(Array.from(this.testCtrl.items).map(([_, item]) => item));
 
-    if (Array.from(this.testResults.values()).every(result => result.status !== 'running')) {
+    if (Array.from(context.testingStore.getTheoremResults().values()).every(result => result.status !== 'running')) {
       this.testRun?.end();
       this.testRun = null;
     }

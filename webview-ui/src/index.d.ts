@@ -9,6 +9,7 @@ type TheoremResult = {
 	time?: number;
 	status: 'undetermined' | 'running' | 'valid' | 'invalid';
   details?: TheoremResultDetails;
+	counterexampleSteps?: Record<string, string>[];
 }
 
 type TheoremResultDetails = {
