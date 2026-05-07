@@ -4,6 +4,7 @@ import {
   VscodeTabHeader,
   VscodeTabPanel,
   VscodeButton,
+  VscodeScrollable,
   VscodeSingleSelect,
   VscodeOption,
   VscodeToolbarButton,
@@ -52,9 +53,7 @@ const MOCK_COUNTEREXAMPLE: CounterexampleData = {
 };
 
 import TheoremStatusBadge from "../components/TheoremStatusBadge/index";
-import CounterExampleTab from "../components/tabs/CounterExampleTab";
-import GraphTab from "../components/tabs/GraphTab";
-import RunPropertyInfoTab from "../components/tabs/RunPropertyInfoTab";
+import CounterexampleTab from "./tabs/CounterexampleTab";
 
 interface Props {
   vscode: WebviewApi<unknown>;
@@ -178,27 +177,140 @@ const PropertyPanel: React.FC<Props> = ({ vscode }) => {
         <VscodeTabHeader slot="header">Run Property Info</VscodeTabHeader>
 
         {/* ── Counterexample Trace tab ─────────────────────────────────── */}
-        <VscodeTabPanel className="flex flex-col flex-1 overflow-hidden p-0">
-          <CounterExampleTab result={result} data={MOCK_COUNTEREXAMPLE} />
+        <VscodeTabPanel
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            flex: 1,
+            padding: 0,
+          }}
+        >
+          <CounterexampleTab result={result} data={MOCK_COUNTEREXAMPLE} />
         </VscodeTabPanel>
 
         {/* ── Transaction Graph tab ─────────────────────────────────────── */}
-        <VscodeTabPanel className="flex flex-col flex-1 overflow-hidden p-0">
-          <GraphTab />
+        <VscodeTabPanel>
+          <div
+            style={{
+              padding: "16px",
+              color: "var(--vscode-descriptionForeground)",
+            }}
+          >
+            Transaction graph not yet implemented.
+          </div>
         </VscodeTabPanel>
 
         {/* ── Run Property Info tab ─────────────────────────────────────── */}
-        <VscodeTabPanel className="flex flex-col flex-1 overflow-hidden p-0">
-          <RunPropertyInfoTab
-            displayStatus={displayStatus}
-            hasCex={!!cexDetail}
-            allVariables={allVariables}
-            result={result}
-          />
+        <VscodeTabPanel>
+          <VscodeScrollable>
+            <div
+              style={{
+                padding: "12px 16px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "16px",
+              }}
+            >
+              <section>
+                <SectionHeading>Solver Metadata</SectionHeading>
+                <MetaGrid>
+                  <MetaCell label="Solver Used" value="—" />
+                  <MetaCell label="Solver Version" value="—" />
+                  <MetaCell label="Solver Flags" value="—" />
+                </MetaGrid>
+              </section>
+
+              <section>
+                <SectionHeading>Statistics</SectionHeading>
+                <MetaGrid>
+                  <MetaCell label="Status" value={displayStatus} />
+                  <MetaCell
+                    label="Counterexample Kind"
+                    value={cexDetail ? "Step" : "—"}
+                  />
+                  <MetaCell
+                    label="Time to Execute"
+                    value={result.time != null ? `${result.time}ms` : "—"}
+                  />
+                  <MetaCell label="Number of Clauses" value="—" />
+                  <MetaCell
+                    label="Number of Variables"
+                    value={
+                      allVariables.length > 0
+                        ? String(allVariables.length)
+                        : "—"
+                    }
+                  />
+                  <MetaCell label="Number of Literals" value="—" />
+                </MetaGrid>
+              </section>
+            </div>
+          </VscodeScrollable>
         </VscodeTabPanel>
       </VscodeTabs>
     </div>
   );
 };
+
+// ── Small helper components ────────────────────────────────────────────────────
+
+const SectionHeading: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => (
+  <div
+    style={{
+      fontSize: "11px",
+      fontWeight: 700,
+      textTransform: "uppercase",
+      letterSpacing: "0.06em",
+      color: "var(--vscode-descriptionForeground)",
+      marginBottom: "6px",
+      paddingBottom: "4px",
+      borderBottom: "1px solid var(--vscode-panel-border)",
+    }}
+  >
+    {children}
+  </div>
+);
+
+const MetaGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(3, 1fr)",
+      gap: "6px 12px",
+    }}
+  >
+    {children}
+  </div>
+);
+
+const MetaCell: React.FC<{ label: string; value: string }> = ({
+  label,
+  value,
+}) => (
+  <div style={{ minWidth: 0 }}>
+    <div
+      style={{
+        color: "var(--vscode-descriptionForeground)",
+        fontSize: "11px",
+        marginBottom: "2px",
+      }}
+    >
+      {label}
+    </div>
+    <div
+      style={{
+        fontSize: "12px",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {value}
+    </div>
+  </div>
+);
 
 export default PropertyPanel;
