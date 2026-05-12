@@ -4,8 +4,8 @@ import {
   VscodeTextfield,
   VscodeToolbarButton,
 } from "@vscode-elements/react-elements";
-import SortMenu, { type SortOption } from "./SortMenu";
-import type { CounterexampleData } from "../types";
+import SortMenu, { type SortOption } from "../../SortMenu";
+import type { CounterexampleData } from "../../../propertyPanel/types";
 
 interface Props {
   result: TheoremResult;
