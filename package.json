@@ -21,6 +21,62 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "walkthroughs": [
+      {
+        "id": "blaster.welcome",
+        "title": "Build with Blaster",
+        "description": "Enhance your ability to write high assurance smart contract code.",
+        "icon": "walkthrough/images/plutus_logo.svg",
+        "steps": [
+          {
+            "id": "reopenSetup",
+            "title": "Reopen Setup guide",
+            "description": "This guide can always be re-opened by clicking on the icon in the top right of the editor container in your workspace.",
+            "completionEvents": ["onContext:true"],
+            "media": {
+              "image": "walkthrough/images/step1.png",
+              "altText": "VS Code Documentation menu showing the Setup Guide option"
+            }
+          },
+          {
+            "id": "getStarted",
+            "title": "Get Started",
+            "description": "View the documentation and minimal examples to get up and running.",
+            "completionEvents": ["onContext:true"],
+            "media": {
+              "markdown": "walkthrough/step1-get-started.md"
+            }
+          },
+          {
+            "id": "defineProperty",
+            "title": "Define Your First Property",
+            "description": "Learn how to annotate your Plinth code with formal properties.",
+            "completionEvents": ["onContext:true"],
+            "media": {
+              "markdown": "walkthrough/step2-define-property.md"
+            }
+          },
+          {
+            "id": "support",
+            "title": "Support and Troubleshooting",
+            "description": "Find help, report issues, and browse common solutions.",
+            "completionEvents": ["onContext:true"],
+            "media": {
+              "markdown": "walkthrough/step3-support.md"
+            }
+          },
+          {
+            "id": "contribute",
+            "title": "Contribute to the Project",
+            "description": "Join the community and help improve Blaster.",
+            "completionEvents": ["onContext:true"],
+            "media": {
+              "markdown": "walkthrough/step4-contribute.md"
+            }
+          }
+        ]
+      }
+    ],
     "viewsWelcome": [
       {
         "view": "property-panel",
@@ -100,6 +156,12 @@
         "category": "afv",
         "description": "Open the property results view",
         "icon": "$(book)"
+      },
+      {
+        "command": "afv.openWelcome",
+        "title": "Open Welcome",
+        "category": "afv",
+        "description": "Open the Build with Blaster setup guide"
       }
     ],
     "keybindings": [
