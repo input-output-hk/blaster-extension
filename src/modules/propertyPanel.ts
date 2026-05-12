@@ -23,7 +23,7 @@ export default class PropertyPanel {
   private fetchWorkspaces(context: AfvContext): void {
     context.testingStore.fetchWorkspaces().then((workspaces: Workspace[]) => {
       if (this.panel !== null) {
-        this.panel.webview.postMessage({ type: 'workspaces', payload: workspaces });
+        this.panel.webview.postMessage({ type: 'workspaces', payload: workspaces } as ExtensionToWebviewMessage);
       }
     });
   }
@@ -32,7 +32,7 @@ export default class PropertyPanel {
     if (this.currentTheoremId !== null) {
       context.testingStore.fetchTheoremResult(this.currentTheoremId).then((result: TheoremResult) => {
         if (this.panel !== null) {
-          this.panel.webview.postMessage({ type: 'theorem-result', payload: result });
+          this.panel.webview.postMessage({ type: 'theorem-result', payload: result } as ExtensionToWebviewMessage);
         }
       });
     }
@@ -49,6 +49,16 @@ export default class PropertyPanel {
     }
   }
 
+  private setFullscreen(): void {
+    if (this.panel !== null) {
+      this.panel.reveal(vscode.ViewColumn.One);
+      vscode.commands.executeCommand('vscode.setEditorLayout', {
+        orientation: 0,
+        groups: [{ size: 1.0 }]
+      });
+    }
+  }
+
   private registerCommand(context: AfvContext): vscode.Disposable {
     return vscode.commands.registerCommand('afv.openPropertyResults', (testItem?: vscode.TestItem) => {
       if (testItem && testItem.tags.includes(PROPERTY_TAG)) {
@@ -59,8 +69,7 @@ export default class PropertyPanel {
       
       // if webview panel is already open
       if (this.panel !== null) {
-        const columnToShowIn = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
-        this.panel.reveal(columnToShowIn);
+        this.panel.reveal();
         this.fetchCurrentTheoremResult(context);
         return;
       }
@@ -81,7 +90,7 @@ export default class PropertyPanel {
 
       // Listen for messages from the webview
       this.panel.webview.onDidReceiveMessage(
-        message => {
+        (message: WebviewToExtensionMessage) => {
           switch (message.type) {
             case 'webview-ready':
               this.fetchWorkspaces(context);
@@ -92,6 +101,9 @@ export default class PropertyPanel {
               break;
             case 'run-theorem':
               this.runCurrentTheorem(context);
+              break;
+            case 'set-fullscreen':
+              this.setFullscreen();
               break;
           }
         },

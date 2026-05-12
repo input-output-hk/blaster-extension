@@ -85,22 +85,24 @@ const toDisplayStatus = (status: string) => {
   return status.charAt(0).toUpperCase() + status.slice(1);
 };
 
-// ── Main component ─────────────────────────────────────────────────────────────
 const PropertyPanel: React.FC<Props> = ({ vscode }) => {
   const [result, setResult] = useState<TheoremResult | null>(null);
   const [details, setDetails] = useState<TheoremResultDetail[]>([]);
 
   useEffect(() => {
-    vscode.postMessage({ type: "webview-ready" });
+    vscode.postMessage({ type: "webview-ready" } as WebviewToExtensionMessage);
 
     // Example of sending a message to the extension when a theorem is selected
-    // vscode.postMessage({ type: "change-theorem", payload: { theoremId: "example-theorem-id" } });
+    // vscode.postMessage({ type: "change-theorem", payload: { theoremId: "example-theorem-id" } } as WebviewToExtensionMessage);
 
     // Example of sending a message to the extension to run the current theorem
-    // vscode.postMessage({ type: "run-theorem" });
+    // vscode.postMessage({ type: "run-theorem" } as WebviewToExtensionMessage);
+
+    // Example of sending a message to the extension to set fullscreen mode
+    // vscode.postMessage({ type: "set-fullscreen" } as WebviewToExtensionMessage);
 
     const messageHandler = (event: MessageEvent) => {
-      const message = event.data;
+      const message = event.data as ExtensionToWebviewMessage;
       if (message.type === "theorem-result") {
         setResult(message.payload);
         setDetails(getTheoremResultDetails(message.payload));
@@ -133,8 +135,7 @@ const PropertyPanel: React.FC<Props> = ({ vscode }) => {
         overflow: "hidden",
       }}
     >
-      {/* ── Property selector row ──────────────────────────────────────── */}
-      <div className="flex items-center px-2 py-1 gap-2 shrink-0 border-b border-[var(--vscode-panel-border)] min-h-8">
+      <div className="flex items-center px-2 py-1 gap-2 shrink-0 border-b border-(--vscode-panel-border) min-h-8">
         <VscodeSingleSelect>
           <VscodeOption>noDeadlock (Escrow.hs)</VscodeOption>
           <VscodeOption>noDoubleSpend (Escrow.hs)</VscodeOption>
@@ -153,7 +154,6 @@ const PropertyPanel: React.FC<Props> = ({ vscode }) => {
         <VscodeButton>Recheck</VscodeButton>
       </div>
 
-      {/* ── Tabs ──────────────────────────────────────────────────────────── */}
       <VscodeTabs
         style={{
           flex: "1",
@@ -167,17 +167,14 @@ const PropertyPanel: React.FC<Props> = ({ vscode }) => {
         <VscodeTabHeader slot="header">Transaction Graph</VscodeTabHeader>
         <VscodeTabHeader slot="header">Run Property Info</VscodeTabHeader>
 
-        {/* ── Counterexample Trace tab ─────────────────────────────────── */}
         <VscodeTabPanel className="flex flex-col flex-1 overflow-hidden p-0">
           <CounterExampleTab result={result} data={MOCK_COUNTEREXAMPLE} />
         </VscodeTabPanel>
 
-        {/* ── Transaction Graph tab ─────────────────────────────────────── */}
         <VscodeTabPanel className="flex flex-col flex-1 overflow-hidden p-0">
           <GraphTab graph={result.graph} />
         </VscodeTabPanel>
 
-        {/* ── Run Property Info tab ─────────────────────────────────────── */}
         <VscodeTabPanel className="flex flex-col flex-1 overflow-hidden p-0">
           <RunPropertyInfoTab
             displayStatus={displayStatus}

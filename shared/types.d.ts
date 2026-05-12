@@ -1,3 +1,25 @@
+type Workspace = {
+	path: string;
+	label: string;
+	children: Node[];
+}
+
+type Node = {
+	type: 'folder' | 'file';
+	label: string;
+	path: string;
+}
+
+type FolderNode = Node & {
+	type: 'folder';
+	children: Node[];
+}
+
+type FileNode = Node & {
+	type: 'file';
+	theorems: Theorem[];
+}
+
 type Range = {
 	startLine: number;
 	startCharacter: number;
@@ -17,7 +39,7 @@ type TheoremResult = {
 	time?: number;
 	status: 'undetermined' | 'running' | 'valid' | 'invalid';
 	details?: TheoremResultDetails;
-	counterexampleSteps?: Record<string, string>[];
+	counterexampleSteps?: TheoremCounterexampleStep[];
 	graph?: TheoremGraph;
 }
 
@@ -29,6 +51,12 @@ type TheoremResultDiagnostic = {
 	message: string;
 	range?: Range;
 	severity: 'error' | 'warning' | 'information';
+}
+
+type TheoremCounterexampleStep = {
+	txHash: string;
+	data: Record<string, string>;
+	discarded: boolean;
 }
 
 type TheoremGraph = {
@@ -71,9 +99,10 @@ type TheoremResultDetail = {
 
 type ExtensionToWebviewMessage =
 	| { type: 'theorem-result'; payload: TheoremResult }
-	| { type: 'workspaces'; payload: unknown }
+	| { type: 'workspaces'; payload: Workspace[] }
 
 type WebviewToExtensionMessage =
 	| { type: 'webview-ready' }
 	| { type: 'change-theorem'; payload: { theoremId: string } }
 	| { type: 'run-theorem' }
+	| { type: 'set-fullscreen' }

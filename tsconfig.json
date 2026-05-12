@@ -10,5 +10,5 @@
     "esModuleInterop": true,
     "skipLibCheck": true
   },
-  "exclude": ["node_modules", "webview-ui", "webview-ui-old"]
+  "exclude": ["node_modules", "webview-ui"]
 }

@@ -1,3 +1,5 @@
+# AFV VS Code Extension
+
 ## Configuration
 
 This extension is designed to be used as a front-end interface to the [Automatic Formal Verification tool](https://github.com/input-output-hk/sc-fvt) developed by the Cardano High Assurance team. To use this extension you will need to first have the Automatic Formal Verification tool installed. Follow the instructions below to set up your environment so you can use the extension

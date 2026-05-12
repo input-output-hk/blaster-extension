@@ -4,11 +4,15 @@ import RpcClient from './rpcClient';
 import { AfvContext } from '../extension';
 
 const MOCK_COUNTEREXAMPLE_STEPS = [
-  { datum: 'datum1', redeemer: 'redeemer1', tx: '1111' },
-  { datum: 'datum2', redeemer: 'redeemer2', tx: '2222' },
-  { datum: 'datum3', redeemer: 'redeemer3', tx: '3333' },
-  { datum: 'datum4', redeemer: 'redeemer4', tx: '4444' },
-];
+  { txHash: 'd03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adba', data: { datum: 'datum1', redeemer: 'redeemer1', variable1: '1111' }, discarded: false },
+  { txHash: 'd03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbb', data: { datum: 'datum2', redeemer: 'redeemer2', variable1: '2222' }, discarded: false },
+  { txHash: 'd03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbc', data: { datum: 'datum3', redeemer: 'redeemer3', variable1: '3333' }, discarded: false },
+  { txHash: 'd03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbd', data: { datum: 'datum4', redeemer: 'redeemer4', variable1: '4444' }, discarded: false },
+  { txHash: 'd03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbe', data: {}, discarded: true },
+  { txHash: 'd03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbf', data: {}, discarded: true },
+  { txHash: 'd03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbg', data: {}, discarded: true },
+  { txHash: 'd03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbh', data: {}, discarded: true },
+] as TheoremCounterexampleStep[];
 
 const MOCK_GRAPH = {
   txs: [{
@@ -119,7 +123,7 @@ const MOCK_GRAPH = {
       quantity: 12507620,
     }],
   }],
-};
+} as TheoremGraph;
 
 export default class TestingStore {
   private rpcClient: RpcClient;
