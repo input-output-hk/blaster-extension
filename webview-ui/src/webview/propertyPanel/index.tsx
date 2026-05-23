@@ -11,45 +11,6 @@ import {
 
 import type { WebviewApi } from "vscode-webview";
 
-import type { CounterexampleData } from "./types";
-
-const MOCK_COUNTEREXAMPLE: CounterexampleData = {
-  tx: {
-    discarded: false,
-    steps: [
-      { value: "123" },
-      { value: "123" },
-      { value: "123" },
-      { value: "123" },
-    ],
-  },
-  datum: {
-    discarded: false,
-    steps: [
-      { value: "datum1" },
-      { value: "datum2" },
-      { value: "datum3" },
-      { value: "datum4" },
-    ],
-  },
-  redeemer: {
-    discarded: false,
-    steps: [
-      { value: "redeemer1" },
-      { value: "redeemer2" },
-      { value: "redeemer3" },
-      { value: "redeemer4" },
-    ],
-  },
-  discarded1: {
-    discarded: true,
-    steps: [{ value: "-" }, { value: "-" }, { value: "-" }, { value: "-" }],
-  },
-  discarded2: {
-    discarded: true,
-    steps: [{ value: "-" }, { value: "-" }, { value: "-" }, { value: "-" }],
-  },
-};
 
 import TheoremStatusBadge from "../components/TheoremStatusBadge/index";
 import CounterExampleTab from "../components/tabs/CounterExampleTab";
@@ -105,7 +66,11 @@ const PropertyPanel: React.FC<Props> = ({ vscode }) => {
       const message = event.data as ExtensionToWebviewMessage;
       if (message.type === "theorem-result") {
         setResult(message.payload);
-        setDetails(getTheoremResultDetails(message.payload));
+        setDetails(
+          message.payload.status === "running"
+            ? []
+            : getTheoremResultDetails(message.payload),
+        );
         
         console.log("Received theorem result:", message.payload);
       }
@@ -168,7 +133,7 @@ const PropertyPanel: React.FC<Props> = ({ vscode }) => {
         <VscodeTabHeader slot="header">Run Property Info</VscodeTabHeader>
 
         <VscodeTabPanel className="flex flex-col flex-1 overflow-hidden p-0">
-          <CounterExampleTab result={result} data={MOCK_COUNTEREXAMPLE} />
+          <CounterExampleTab result={result} steps={result.counterexampleSteps ?? []} />
         </VscodeTabPanel>
 
         <VscodeTabPanel className="flex flex-col flex-1 overflow-hidden p-0">

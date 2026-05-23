@@ -218,6 +218,8 @@ export default class TestingStore {
       if (this.theoremResults.has(theoremId)) {
         this.theoremResults.get(theoremId)!.status = 'running';
         this.theoremResults.get(theoremId)!.time = 0;
+        this.theoremResults.get(theoremId)!.counterexampleSteps = [];
+        this.theoremResults.get(theoremId)!.graph = undefined;
         this.notifyTheoremUpdate(this.theoremResults.get(theoremId)!);
       }
     }

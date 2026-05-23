@@ -1,106 +1,65 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  VscodeBadge,
   VscodeTextfield,
   VscodeToolbarButton,
 } from "@vscode-elements/react-elements";
 import SortMenu, { type SortOption } from "../../SortMenu";
-import type { CounterexampleData } from "../../../propertyPanel/types";
+import ToggleSwitch from "../../ToggleSwitch";
 
 interface Props {
   result: TheoremResult;
-  data: CounterexampleData;
+  steps: TheoremCounterexampleStep[];
 }
 
-const ToggleSwitch: React.FC<{
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  label: string;
-  badgeCount?: number;
-}> = ({ checked, onChange, label, badgeCount }) => (
-  <label
-    style={{
-      display: "inline-flex",
-      alignItems: "center",
-      gap: "6px",
-      cursor: "pointer",
-      fontSize: "13px",
-      color: "var(--color-base-06)",
-      userSelect: "none",
-    }}
-  >
-    <span
-      onClick={() => onChange(!checked)}
-      style={{
-        position: "relative",
-        display: "inline-block",
-        width: "26px",
-        height: "14px",
-        borderRadius: "7px",
-        background: checked ? "var(--color-blue-06)" : "var(--color-base-13)",
-        transition: "background 0.15s",
-        flexShrink: 0,
-      }}
-    >
-      <span
-        style={{
-          position: "absolute",
-          top: "1px",
-          left: checked ? "13px" : "1px",
-          width: "12px",
-          height: "12px",
-          borderRadius: "50%",
-          background: "#fff",
-          transition: "left 0.15s",
-        }}
-      />
-    </span>
-    {badgeCount !== undefined && badgeCount > 0 && (
-      <VscodeBadge>{badgeCount}</VscodeBadge>
-    )}
-    <span style={{ color: "var(--color-base-07)", fontSize: "13px" }}>
-      {label}
-    </span>
-  </label>
-);
-
-const CounterexampleTab: React.FC<Props> = ({ data }) => {
+const CounterexampleTab: React.FC<Props> = ({ result, steps }) => {
   const [searchText, setSearchText] = useState("");
   const [showDiscarded, setShowDiscarded] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>("alphabetical");
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const sortButtonRef = useRef<HTMLDivElement>(null);
+  const [, forceUpdate] = useState(0);
 
-  const allVariables = Object.keys(data);
-  const stepCount = Math.max(
-    0,
-    ...Object.values(data).map((p) => p.steps.length),
+  useEffect(() => {
+    const onResize = () => forceUpdate((n) => n + 1);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const discardedCount = steps.filter((s) => s.discarded).length;
+  const visibleTxs = showDiscarded ? steps : steps.filter((s) => !s.discarded);
+
+  const allVarNames = Array.from(
+    new Set(steps.flatMap((s) => Object.keys(s.data))),
   );
-  const steps = Array.from({ length: stepCount }, (_, i) => `Step ${i + 1}`);
 
-  const displayVariables = allVariables
-    .filter((k) => showDiscarded || !data[k].discarded)
+  const displayVariables = allVarNames
     .filter(
       (k) =>
         searchText === "" || k.toLowerCase().includes(searchText.toLowerCase()),
     )
     .sort((a, b) => {
-      switch (sortBy) {
-        case "alphabetical":
-          return a.localeCompare(b);
-        case "non-discarded-first":
-          return (data[a].discarded ? 1 : 0) - (data[b].discarded ? 1 : 0);
-        case "discarded-first":
-          return (data[b].discarded ? 1 : 0) - (data[a].discarded ? 1 : 0);
-        default:
-          return 0;
-      }
+      if (sortBy === "alphabetical") return a.localeCompare(b);
+      return 0;
     });
 
+  const columns = [
+    { id: "txHash", label: "Tx Hash", align: "left" as const },
+    ...displayVariables.map((v) => ({
+      id: v,
+      label: v,
+      align: "center" as const,
+    })),
+  ];
+
+  const rows = visibleTxs.map((tx) => [
+    tx.txHash,
+    ...displayVariables.map((v) => String(tx.data[v] ?? "-")),
+  ]);
+
   return (
-    <div className="flex flex-col overflow-hidden flex-1">
+    <div className="flex flex-col overflow-hidden flex-1 m-4">
       {/* Search & filter bar */}
-      <div className="flex items-center justify-between px-4 py-2 shrink-0">
+      <div className="flex items-center justify-between px-4 py-2 shrink-0 bg-base-17">
         <VscodeTextfield
           placeholder="Search variable..."
           value={searchText}
@@ -119,89 +78,78 @@ const CounterexampleTab: React.FC<Props> = ({ data }) => {
           />
         </VscodeTextfield>
 
-        <div className="flex-1" />
-
-        <ToggleSwitch
-          checked={showDiscarded}
-          onChange={setShowDiscarded}
-          label="Show discarded"
-          badgeCount={0}
-        />
-
-        <div className="relative" ref={sortButtonRef}>
-          <VscodeToolbarButton
-            title="Sort"
-            style={{ transform: "rotate(90deg)" }}
-            onClick={() => setSortMenuOpen((o) => !o)}
-          >
-            <i className="codicon codicon-arrow-swap" />
-          </VscodeToolbarButton>
-          {sortMenuOpen && (
-            <SortMenu
-              value={sortBy}
-              onChange={setSortBy}
-              onClose={() => setSortMenuOpen(false)}
-              anchorRef={sortButtonRef}
-            />
-          )}
-        </div>
-
-        <VscodeToolbarButton title="Filter">
-          <i className="codicon codicon-filter" />
-        </VscodeToolbarButton>
-      </div>
-
-      {/* Table */}
-      <div className="flex-1 overflow-auto">
-        <div className="flex flex-col w-full">
-          {/* Header */}
-          <div className="flex items-center w-full shrink-0 h-8">
-            <div className="w-32 shrink-0 flex items-center h-full px-4 border border-base-13 bg-base-20">
-              <span className="text-xs font-bold text-base-05">
-                Variable Name
-              </span>
+        <div className="flex items-center gap-8">
+          <ToggleSwitch
+            checked={showDiscarded}
+            onChange={setShowDiscarded}
+            label="Show discarded"
+            badgeCount={discardedCount}
+          />
+          <div className="flex items-center gap-2">
+            <div className="relative" ref={sortButtonRef}>
+              <VscodeToolbarButton
+                title="Sort"
+                style={{ transform: "rotate(90deg)" }}
+                onClick={() => setSortMenuOpen((o) => !o)}
+              >
+                <i className="codicon codicon-arrow-swap" />
+              </VscodeToolbarButton>
+              {sortMenuOpen && (
+                <SortMenu
+                  value={sortBy}
+                  onChange={setSortBy}
+                  onClose={() => setSortMenuOpen(false)}
+                  anchorRef={sortButtonRef}
+                />
+              )}
             </div>
-            {steps.map((step) => (
-              <div
-                key={step}
-                className="flex-1 flex items-center justify-center h-full px-4 border border-base-13 bg-base-20"
-              >
-                <span className="text-xs font-bold text-base-05">{step}</span>
-              </div>
-            ))}
+            <VscodeToolbarButton title="Filter">
+              <i className="codicon codicon-filter" />
+            </VscodeToolbarButton>
           </div>
-
-          {/* Rows */}
-          {displayVariables.map((varName, rowIdx) => {
-            const { steps: varSteps } = data[varName];
-            const rowBg = rowIdx % 2 === 0 ? "bg-base-19" : "bg-base-20";
-            return (
-              <div
-                key={varName}
-                className={`flex items-center w-full shrink-0 h-9 ${rowBg}`}
-              >
-                <div
-                  className={`w-32 shrink-0 flex items-center h-full pl-2 pr-4 border border-base-13 ${rowBg}`}
-                >
-                  <span className="text-xs text-base-06 truncate">
-                    {varName}
-                  </span>
-                </div>
-                {varSteps.map((step, i) => (
-                  <div
-                    key={i}
-                    className={`flex-1 flex items-center justify-center h-full px-4 border border-base-13 ${rowBg}`}
-                  >
-                    <span className="text-xs text-base-06 text-center">
-                      {String(step.value)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            );
-          })}
         </div>
       </div>
+
+      {result.status === "running" ? (
+        <div className="flex flex-col flex-1 items-center justify-center gap-2 text-blue-06">
+          <i className="codicon codicon-loading codicon-modifier-spin text-2xl" />
+          <span className="text-xs">Running…</span>
+        </div>
+      ) : (
+        <div className="flex-1 overflow-auto">
+          <table className="w-full border-collapse table-fixed">
+            <thead>
+              <tr>
+                {columns.map((col) => (
+                  <th
+                    key={col.id}
+                    className={`h-8 px-4 border border-base-13 bg-base-20 text-xs font-bold text-base-05 ${col.align === "left" ? "text-left" : "text-center"}`}
+                  >
+                    {col.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, rowIdx) => (
+                <tr
+                  key={rowIdx}
+                  className={rowIdx % 2 === 0 ? "bg-base-19" : "bg-base-20"}
+                >
+                  {columns.map((col, colIdx) => (
+                    <td
+                      key={col.id}
+                      className={`h-9 px-2 border border-base-13 text-xs text-base-06 truncate ${col.align === "left" ? "text-left pl-2 pr-4" : "text-center px-4"}`}
+                    >
+                      {row[colIdx] ?? "-"}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 };
