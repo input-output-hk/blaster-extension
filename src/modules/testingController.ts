@@ -101,7 +101,36 @@ export default class TestingController {
     context.testingStore.runTheorem(Array.from(runTheoremIds));
   }
 
+  /** Recursively searches the test item tree for the item matching the given theorem ID. */
+  private findTestItem(theoremId: string): vscode.TestItem | null {
+    const search = (items: vscode.TestItem[]): vscode.TestItem | null => {
+      for (const item of items) {
+        if (item.id === `property:${theoremId}`) return item;
+        const found = search(Array.from(item.children).map(([_, child]) => child));
+        if (found) return found;
+      }
+      return null;
+    };
+    return search(Array.from(this.testCtrl.items).map(([_, item]) => item));
+  }
+
+  /**
+   * Runs a single theorem by ID. If a TestRun session is already active in the Test Explorer,
+   * the theorem is appended to it (incrementing the counter) rather than opening a new session.
+   */
+  public runByTheoremId(theoremId: string, testingStore: AfvContext['testingStore']): void {
+    const item = this.findTestItem(theoremId);
+    if (this.testRun === null) {
+      const request = new vscode.TestRunRequest(item ? [item] : undefined);
+      this.testRun = this.testCtrl.createTestRun(request);
+    }
+    if (item) this.testRun.started(item);
+    testingStore.runTheorem([theoremId]);
+  }
+
   private updateTestItem(context: AfvContext, result: TheoremResult) {
+    if (this.testRun === null) return;
+
     const updateTestItemRecursively = (items: vscode.TestItem[]) => {
       for (const item of items) {
         if (item.id === `property:${result.theorem.id}`) {

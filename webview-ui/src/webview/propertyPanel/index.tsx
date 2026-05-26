@@ -3,10 +3,8 @@ import {
   VscodeTabs,
   VscodeTabHeader,
   VscodeTabPanel,
-  VscodeButton,
   VscodeSingleSelect,
   VscodeOption,
-  VscodeToolbarButton,
 } from "@vscode-elements/react-elements";
 
 import type { WebviewApi } from "vscode-webview";
@@ -46,9 +44,41 @@ const toDisplayStatus = (status: string) => {
   return status.charAt(0).toUpperCase() + status.slice(1);
 };
 
+type SelectItem =
+  | { type: "header"; label: string }
+  | { type: "theorem"; id: string; label: string };
+
+type WsNode = {
+  type: "folder" | "file";
+  label: string;
+  theorems?: Theorem[];
+  children?: WsNode[];
+};
+
+const flattenWorkspaces = (workspaces: Workspace[]): SelectItem[] => {
+  const items: SelectItem[] = [];
+  const visit = (node: WsNode) => {
+    if (node.type === "file") {
+      if (node.theorems && node.theorems.length > 0) {
+        items.push({ type: "header", label: node.label });
+        node.theorems.forEach((t) =>
+          items.push({ type: "theorem", id: t.id, label: `  ${t.label}` })
+        );
+      }
+    } else {
+      node.children?.forEach(visit);
+    }
+  };
+  workspaces.forEach((ws) =>
+    ws.children.forEach((child) => visit(child as unknown as WsNode))
+  );
+  return items;
+};
+
 const PropertyPanel: React.FC<Props> = ({ vscode }) => {
   const [result, setResult] = useState<TheoremResult | null>(null);
   const [details, setDetails] = useState<TheoremResultDetail[]>([]);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
 
   useEffect(() => {
     vscode.postMessage({ type: "webview-ready" } as WebviewToExtensionMessage);
@@ -75,8 +105,7 @@ const PropertyPanel: React.FC<Props> = ({ vscode }) => {
         console.log("Received theorem result:", message.payload);
       }
       if (message.type === "workspaces") {
-        // TODO: Implement handling of workspaces data if needed
-        console.log("Received workspaces:", message.payload);
+        setWorkspaces(message.payload);
       }
     };
 
@@ -101,22 +130,33 @@ const PropertyPanel: React.FC<Props> = ({ vscode }) => {
       }}
     >
       <div className="flex items-center px-2 py-1 gap-2 shrink-0 border-b border-(--vscode-panel-border) min-h-8">
-        <VscodeSingleSelect>
-          <VscodeOption>noDeadlock (Escrow.hs)</VscodeOption>
-          <VscodeOption>noDoubleSpend (Escrow.hs)</VscodeOption>
-          <VscodeOption>alwaysFinishes (Vesting.hs)</VscodeOption>
-          <VscodeOption>canRedeem (Vesting.hs)</VscodeOption>
-          <VscodeOption>validTransition (StateMachine.hs)</VscodeOption>
+        <VscodeSingleSelect onChange={(e) => {
+          const value = (e.target as EventTarget & { value: string }).value;
+          if (value) {
+            vscode.postMessage({ type: "change-theorem", payload: { theoremId: value } } as WebviewToExtensionMessage);
+          }
+        }}>
+          {flattenWorkspaces(workspaces).map((item, i) =>
+            item.type === "header" ? (
+              <VscodeOption key={i} disabled>{item.label}</VscodeOption>
+            ) : (
+              <VscodeOption key={i} value={item.id}>{"   "}{item.label}</VscodeOption>
+            )
+          )}
         </VscodeSingleSelect>
 
         <TheoremStatusBadge status={result.status} />
 
         <div className="flex-1" />
 
-        <VscodeToolbarButton>
-          <i className="codicon codicon-export" />
-        </VscodeToolbarButton>
-        <VscodeButton>Recheck</VscodeButton>
+        <button className="flex items-center gap-[6px] bg-base-15 text-base-06 rounded pl-2 pr-[11px] py-[6px] text-[13px] shrink-0 cursor-pointer active:bg-blue-07 active:text-base-01" onClick={() => vscode.postMessage({ type: "run-theorem" } as WebviewToExtensionMessage)}>
+          <i className="codicon codicon-refresh" />
+          Recheck
+        </button>
+        <button className="flex items-center gap-[6px] bg-base-15 text-base-06 rounded pl-2 pr-[11px] py-[6px] text-[13px] shrink-0 cursor-pointer active:bg-blue-07 active:text-base-01">
+          <i className="codicon codicon-cloud-download" />
+          Download
+        </button>
       </div>
 
       <VscodeTabs

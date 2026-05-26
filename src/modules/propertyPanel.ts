@@ -45,7 +45,7 @@ export default class PropertyPanel {
 
   private runCurrentTheorem(context: AfvContext): void {
     if (this.currentTheoremId !== null) {
-      context.testingStore.runTheorem([this.currentTheoremId]);
+      context.testingController.runByTheoremId(this.currentTheoremId, context.testingStore);
     }
   }
 
