@@ -1,16 +1,21 @@
 import { Handle, Position } from "@xyflow/react";
 import TransactionCard from "../TransactionCard";
 import type { TransactionCardProps } from "../TransactionCard";
+import GroupTransactionCard from "../GroupTransactionCard";
+import type { GroupTransactionCardProps } from "../GroupTransactionCard";
 
-export type GraphCardNodeData = TransactionCardProps;
+type GraphCardNodeData =
+  | ({ grouped: true } & GroupTransactionCardProps)
+  | ({ grouped: false } & TransactionCardProps);
 
-// ReactFlow custom node wrapper for TransactionCard.
-// Attaches a non-interactive target handle on the left and source handle on the right,
-// then delegates all rendering to TransactionCard via its data prop.
+// Renders either a GroupTransactionCard (collapsed) or TransactionCard (expanded),
+// wrapped in ReactFlow handles.
 const GraphCardNode: React.FC<{ data: GraphCardNodeData }> = ({ data }) => (
   <>
     <Handle type="target" position={Position.Left} isConnectable={false} />
-    <TransactionCard {...data} />
+    {data.grouped
+      ? <GroupTransactionCard {...data} />
+      : <TransactionCard {...data} />}
     <Handle type="source" position={Position.Right} isConnectable={false} />
   </>
 );

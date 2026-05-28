@@ -5,9 +5,10 @@ export interface TransactionCardProps extends Record<string, unknown> {
   identifier: string;
   address: string;
   fields: { label: string; value: string }[];
+  onToggleExpand?: () => void;
 }
 
-const HEADER_BG: Record<TransactionCardProps["type"], string> = {
+export const HEADER_BG: Record<TransactionCardProps["type"], string> = {
   UTxO: "bg-blue-09",
   Tx: "bg-green-05",
 };
@@ -25,19 +26,22 @@ const TransactionCard: React.FC<TransactionCardProps> = ({
   identifier,
   address,
   fields,
+  onToggleExpand,
 }) => {
   return (
     <div className="flex flex-col w-55 rounded-[5px] overflow-clip">
-      <div
-        className={`flex flex-row items-center ${HEADER_BG[type]} h-[22px] px-1 gap-1`}
-      >
+      <div className={`flex flex-row items-center ${HEADER_BG[type]} h-[22px] px-1 gap-1`}>
         <span className="text-base-01 text-[12px]">{type}</span>
         <span className="bg-blue-01 text-base-13 text-[9px] rounded px-1 py-px">
           {identifier}
         </span>
-        <div className="ml-auto flex items-center">
-          <i className="codicon codicon-filter text-base-01 text-[14px]" />
-        </div>
+        {onToggleExpand && (
+          <div className="ml-auto flex items-center">
+            <button onClick={onToggleExpand} className="cursor-pointer flex items-center p-1">
+              <i className="codicon codicon-collapse-all text-base-01 text-[14px]" />
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col bg-base-18 pt-2 text-base-06 text-[11px]">
