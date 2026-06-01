@@ -1,8 +1,8 @@
-import type { TransactionCardProps } from "../components/TransactionCard";
+import type { GraphNodeCardProps } from "../components/graph/GraphNodeCard";
 
 export interface GraphNode {
   id: string;
-  card: TransactionCardProps;
+  card: GraphNodeCardProps;
 }
 
 export interface GraphEdge {
@@ -27,11 +27,11 @@ const utxoId = (txHash: string, outputIndex: number): string =>
 
 const txId = (hash: string): string => `tx-${hash}`;
 
-const toUtxoNode = (utxo: TheoremGraph["utxos"][number]): GraphNode => {
+const toUtxoNode = (utxo: TestGraph["utxos"][number]): GraphNode => {
   const lovelace = utxo.amount.find((a) => a.unit === "lovelace");
   const tokens = utxo.amount.filter((a) => a.unit !== "lovelace");
 
-  const fields: TransactionCardProps["fields"] = [];
+  const fields: GraphNodeCardProps["fields"] = [];
   if (lovelace) {
     fields.push({ label: "Amount", value: lovelaceToAda(lovelace.quantity) });
   }
@@ -45,7 +45,7 @@ const toUtxoNode = (utxo: TheoremGraph["utxos"][number]): GraphNode => {
   return {
     id: utxoId(utxo.txHash, utxo.outputIndex),
     card: {
-      type: "UTxO",
+      type: "utxo",
       identifier: truncateHash(utxo.txHash),
       address: utxo.address,
       fields,
@@ -53,8 +53,8 @@ const toUtxoNode = (utxo: TheoremGraph["utxos"][number]): GraphNode => {
   };
 };
 
-const toTxNode = (tx: TheoremGraph["txs"][number]): GraphNode => {
-  const fields: TransactionCardProps["fields"] = [
+const toTxNode = (tx: TestGraph["txs"][number]): GraphNode => {
+  const fields: GraphNodeCardProps["fields"] = [
     { label: "Amount", value: lovelaceToAda(tx.totalOutput) },
     { label: "Fees", value: lovelaceToAda(tx.fees) },
   ];
@@ -65,7 +65,7 @@ const toTxNode = (tx: TheoremGraph["txs"][number]): GraphNode => {
   return {
     id: txId(tx.hash),
     card: {
-      type: "Tx",
+      type: "tx",
       identifier: truncateHash(tx.hash),
       address: tx.hash,
       fields,
@@ -73,12 +73,12 @@ const toTxNode = (tx: TheoremGraph["txs"][number]): GraphNode => {
   };
 };
 
-// Converts a TheoremGraph into column-grouped GraphNodes and edges.
+// Converts a TestGraph into column-grouped GraphNodes and edges.
 // Columns alternate between UTxOs and transactions (1-indexed):
 //   tx N → col N*2;  its inputs → col N*2-1;  its outputs → col N*2+1
 // A UTxO that is output of tx[i] and input of tx[i+1] lands in the same column
 // from both sides — the `placed` set prevents it being added twice.
-export const toGraphData = (graph: TheoremGraph): GraphData => {
+export const toGraphData = (graph: TestGraph): GraphData => {
   const utxoMap = new Map(
     graph.utxos.map((u) => [utxoId(u.txHash, u.outputIndex), u])
   );

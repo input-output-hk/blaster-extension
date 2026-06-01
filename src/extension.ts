@@ -1,32 +1,21 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
-import * as vscode from "vscode";
-import TestingStore from "./services/testingStore";
-import SolverConfig from "./modules/solverConfig";
-import PropertyPanel from "./modules/propertyPanel";
-import TestingController from "./modules/testingController";
-import { getBinaryPath } from "./utils/binary";
+import * as vscode from 'vscode';
+import TestStore from './services/testStore';
+import TestTreeView from './modules/testTreeView';
+import TestResultView from './modules/testResultView';
+import { getBinaryPath } from './utils/binary';
 
 export type AfvContext = {
   extension: vscode.ExtensionContext;
-  testingStore: TestingStore;
-  testingController: TestingController;
-  propertyPanel: PropertyPanel;
-  solverConfig: SolverConfig;
+  testStore: TestStore;
+  testTreeView: TestTreeView;
+  testResultView: TestResultView;
 };
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-  context.subscriptions.push(
-    vscode.commands.registerCommand("afv.openWelcome", () => {
-      vscode.commands.executeCommand(
-        "workbench.action.openWalkthrough",
-        `${context.extension.id}#blaster.welcome`,
-      );
-    }),
-  );
-
   // Only proceed if compatible binary exists
   vscode.workspace.fs
     .stat(vscode.Uri.file(context.asAbsolutePath(getBinaryPath())))
@@ -43,33 +32,28 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 function initializeExtension(context: vscode.ExtensionContext) {
-  // Init testing store
-  const testingStore = new TestingStore(context);
+  // Init test store
+  const testStore = new TestStore(context);
 
-  // Init solver config
-  const solverConfig = new SolverConfig();
+  // Init test tree view
+  const testTreeView = new TestTreeView();
 
-  // Init property panel
-  const propertyPanel = new PropertyPanel();
-
-  // Init testing controller
-  const testingController = new TestingController();
+  // Init test result view
+  const testResultView = new TestResultView();
 
   // Init context
   const afvContext: AfvContext = {
     extension: context,
-    testingStore,
-    testingController,
-    propertyPanel,
-    solverConfig,
+    testStore,
+    testTreeView,
+    testResultView,
   };
 
   // Init workspaces
-  testingStore.initialize(afvContext).then(() => {
+  testStore.initialize(afvContext).then(() => {
     // Activate modules
-    solverConfig.activate(afvContext);
-    propertyPanel.activate(afvContext);
-    testingController.activate(afvContext);
+    testTreeView.activate(afvContext);
+    testResultView.activate(afvContext);
   });
 }
 

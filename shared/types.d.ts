@@ -1,23 +1,23 @@
-type Workspace = {
+type TestTree = {
 	path: string;
 	label: string;
-	children: Node[];
+	children: TestTreeNode[];
 }
 
-type Node = {
+type TestTreeNode = {
 	type: 'folder' | 'file';
 	label: string;
 	path: string;
 }
 
-type FolderNode = Node & {
+type TestTreeFolderNode = TestTreeNode & {
 	type: 'folder';
-	children: Node[];
+	children: TestTreeNode[];
 }
 
-type FileNode = Node & {
+type TestTreeFileNode = TestTreeNode & {
 	type: 'file';
-	theorems: Theorem[];
+	tests: Test[];
 }
 
 type Range = {
@@ -27,39 +27,39 @@ type Range = {
 	endCharacter: number;
 }
 
-type Theorem = {
+type Test = {
 	id: string;
 	label: string;
 	path: string;
 	range: Range;
 }
 
-type TheoremResult = {
-	theorem: Theorem;
+type TestResult = {
+	test: Test;
 	time?: number;
 	status: 'undetermined' | 'running' | 'valid' | 'invalid';
-	details?: TheoremResultDetails;
-	counterexampleSteps?: TheoremCounterexampleStep[];
-	graph?: TheoremGraph;
+	details?: TestDetails;
+	counterexampleSteps?: TestCounterexampleStep[];
+	graph?: TestGraph;
 }
 
-type TheoremResultDetails = {
-	diagnostics: TheoremResultDiagnostic[];
+type TestDetails = {
+	diagnostics: TestDiagnostic[];
 }
 
-type TheoremResultDiagnostic = {
+type TestDiagnostic = {
 	message: string;
 	range?: Range;
 	severity: 'error' | 'warning' | 'information';
 }
 
-type TheoremCounterexampleStep = {
+type TestCounterexampleStep = {
 	txHash: string;
 	data: Record<string, string>;
 	discarded: boolean;
 }
 
-type TheoremGraph = {
+type TestGraph = {
 	txs: {
 		hash: string;
 		block: string;
@@ -87,22 +87,13 @@ type TheoremGraph = {
 	}[];
 }
 
-type TheoremResultDetail = {
-	cexLabel?: string;
-	counterexample?: Record<string, string | string[]>;
-	depth: number | null;
-	expected: boolean;
-	status: 'valid' | 'falsified' | 'running' | 'undetermined';
-	timestamp: number;
-	type: 'result';
-}
-
 type ExtensionToWebviewMessage =
-	| { type: 'theorem-result'; payload: TheoremResult }
-	| { type: 'workspaces'; payload: Workspace[] }
+	| { type: 'test-result'; payload: TestResult }
+	| { type: 'test-tree'; payload: { testTree: TestTree[], testResults?: Record<string, TestResult> } }
 
 type WebviewToExtensionMessage =
 	| { type: 'webview-ready' }
-	| { type: 'change-theorem'; payload: { theoremId: string } }
-	| { type: 'run-theorem' }
-	| { type: 'set-fullscreen' }
+	| { type: 'scan-workspace' }
+	| { type: 'change-test'; payload: { testId: string } }
+	| { type: 'run-test', payload?: { testIds: string[] } }
+	| { type: 'open-result', payload: { testId: string } }

@@ -1,5 +1,5 @@
-import { MarkerType, type Node } from "@xyflow/react";
-import type { GraphNode, GraphEdge } from "./graphMapper";
+import { MarkerType, type Node } from '@xyflow/react';
+import type { GraphNode, GraphEdge } from './graphMapper';
 
 const COLUMN_WIDTH = 320;
 const ROW_HEIGHT = 210;
@@ -13,7 +13,7 @@ const makeNode = (
   data: Record<string, unknown>,
 ): Node => ({
   id,
-  type: "transactionCard",
+  type: "node",
   position: {
     x: (colIdx - 1) * COLUMN_WIDTH,
     y: ((tallest - totalRows) / 2) * ROW_HEIGHT + rowIdx * ROW_HEIGHT,

@@ -3,6 +3,18 @@ import * as cp from 'child_process';
 import * as rpc from 'vscode-jsonrpc/node';
 
 import { getBinaryPath } from '../utils/binary';
+
+type TestTreeParams = {
+	testTreePaths: string[];
+}
+
+type RunTestParams = {
+	testIds: string[];
+}
+
+type FetchTestResultParams = {
+	testId: string;
+}
   
 export default class RpcClient {
   private childProcess: cp.ChildProcess;
@@ -36,17 +48,6 @@ export default class RpcClient {
   }
 
   public async initialize(): Promise<void> {
-
-    await new Promise<void>((resolve) =>
-      this.connection.onNotification('serverReady', resolve)
-    );
-
-    const promise = new Promise<void>((resolve) =>
-      this.connection.onNotification('workspaceInitialized', resolve)
-    );
-
-    await this.initializeWorkspace(vscode.workspace.workspaceFolders || []);
-
     // TODO: Implement handling of workspace changes
     // context.extension.subscriptions.push(
     //   vscode.workspace.onDidChangeWorkspaceFolders(async () => {
@@ -54,11 +55,13 @@ export default class RpcClient {
     //   })
     // );
 
-    return promise;
+    return await new Promise<void>((resolve) =>
+      this.connection.onNotification('serverReady', resolve)
+    );
   }
 
-  public onTestResult(callback: (result: TheoremResult) => void): void {
-    this.connection.onNotification('testResult', (result: TheoremResult) => {
+  public onTestResult(callback: (result: TestResult) => void): void {
+    this.connection.onNotification('testResult', (result: TestResult) => {
       callback(result);
     });
   }
@@ -70,31 +73,31 @@ export default class RpcClient {
   //   });
   // }
 
-  private async initializeWorkspace(workspaces: readonly vscode.WorkspaceFolder[]): Promise<void> {
-    const notification = new rpc.NotificationType<WorkspaceParams>('initializeWorkspace');
-    const workspacePaths = workspaces?.map(folder => folder.uri.fsPath) || [];
-    return this.connection.sendNotification(notification, { workspacePaths });
+  public async buildTestTree(): Promise<TestTree[]> {
+    const request = new rpc.RequestType<TestTreeParams, TestTree[], void>('buildTestTree');
+    const testTreePaths = vscode.workspace.workspaceFolders?.map(folder => folder.uri.fsPath) || [];
+    return await this.connection.sendRequest(request, { testTreePaths });
   }
 	
   // TODO: Implement handling of workspace changes
   // private async updateWorkspace(workspaces: readonly vscode.WorkspaceFolder[]): Promise<void> {
   //   const notification = new rpc.NotificationType<WorkspaceParams>('updateWorkspace');
-  //   const workspacePaths = workspaces?.map(folder => folder.uri.fsPath) || [];
-  //   return this.connection.sendNotification(notification, { workspacePaths });
+  //   const testTreePaths = workspaces?.map(folder => folder.uri.fsPath) || [];
+  //   return this.connection.sendNotification(notification, { testTreePaths });
   // }
 	
-  public async fetchWorkspaces(): Promise<Workspace[]> {
-    const request = new rpc.RequestType<void, Workspace[], void>('getWorkspace');
-    return await this.connection.sendRequest(request, null);
+  // public async fetchTestTree(): Promise<TestTree[]> {
+  //   const request = new rpc.RequestType<void, TestTree[], void>('getTestTree');
+  //   return await this.connection.sendRequest(request, null);
+  // }
+
+  public runTest(testIds: string[]): void {
+    const notification = new rpc.NotificationType<RunTestParams>('runTest');
+    this.connection.sendNotification(notification, { testIds });
   }
 
-  public runTheorem(theoremIds: string[]): void {
-    const notification = new rpc.NotificationType<RunTheoremParams>('runTheorem');
-    this.connection.sendNotification(notification, { theoremIds });
-  }
-
-  public async fetchTheoremResult(theoremId: string): Promise<TheoremResult> {
-    const request = new rpc.RequestType<FetchTheoremResultParams, TheoremResult, void>('getTheoremResult');
-    return await this.connection.sendRequest(request, { theoremId });
+  public async fetchTestResult(testId: string): Promise<TestResult> {
+    const request = new rpc.RequestType<FetchTestResultParams, TestResult, void>('getTestResult');
+    return await this.connection.sendRequest(request, { testId });
   }
 }
