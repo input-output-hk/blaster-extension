@@ -1,19 +1,21 @@
+import { resolve } from 'path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import { resolve } from 'path';
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  base: '/',
+  base: './',
+  root: resolve(__dirname, 'entrypoint'),
+  publicDir: resolve(__dirname, 'public'),
   build: {
     outDir: resolve(__dirname, '../build'),
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        main: resolve(__dirname, 'index.html'),
-        solverOptions: resolve(__dirname, 'solverOptions/index.html'),
+        testTree: resolve(__dirname, 'entrypoint/testTree.html'),
+        testResult: resolve(__dirname, 'entrypoint/testResult.html'),
       },
       output: {
         entryFileNames: `assets/[name].js`,
@@ -22,10 +24,4 @@ export default defineConfig({
       },
     },
   },
-  server: {
-    hmr: {
-      host: "localhost",
-      protocol: "ws",
-    },
-  },
-})
+});

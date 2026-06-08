@@ -1,8 +1,9 @@
 {
   "name": "afv-extension",
-  "publisher": "Cardano High Assurance | IOE",
+  "publisher": "Blaster",
   "displayName": "afv-extension",
-  "description": "UI for the Automatic Formal Verification tool used to formally verify Cardano smart contracts written in Plinth.",
+  "description": "Perform automated formal verification on Cardano smart contracts written in Aiken, Plinth, and UPLC in Visual Studio Code.",
+  "icon": "images/blaster-logo.png",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.101.0"
@@ -14,131 +15,90 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished",
-    "onCommand:afv-extension.afv.runAll",
-    "onCommand:afv-extension.afv.runFile",
-    "onCommand:afv-extension.afv.openPropertyResults"
+    "onStartupFinished"
   ],
   "main": "./out/extension.js",
   "contributes": {
-    "viewsWelcome": [
+    "walkthroughs": [
       {
-        "view": "property-panel",
-        "contents": "No Properties Detected. \nAdd the properties to your file using the [Universal Annotation Language](https://github.com/input-output-hk/sc-fvt) then save your file to display the properties in this property panel."
-      },
-      {
-        "view": "solverConfigurations",
-        "contents": "Solver Configurations view not registerd."
+        "id": "afv.welcome",
+        "title": "Build with Blaster",
+        "description": "Enhance your ability to write high assurance smart contract code.",
+        "icon": "images/blaster-logo.png",
+        "steps": [
+          {
+            "id": "getStarted",
+            "title": "Get Started",
+            "description": "View the documentation and minimal examples to get up and running.",
+            "completionEvents": ["onContext:true"],
+            "media": {
+              "markdown": "content/walkthrough/step1-get-started.md"
+            }
+          },
+          {
+            "id": "defineProperty",
+            "title": "Define Your First Property",
+            "description": "Learn how to annotate your Plinth code with formal properties.",
+            "completionEvents": ["onContext:true"],
+            "media": {
+              "markdown": "content/walkthrough/step2-define-property.md"
+            }
+          },
+          {
+            "id": "support",
+            "title": "Support and Troubleshooting",
+            "description": "Find help, report issues, and browse common solutions.",
+            "completionEvents": ["onContext:true"],
+            "media": {
+              "markdown": "content/walkthrough/step3-support.md"
+            }
+          },
+          {
+            "id": "contribute",
+            "title": "Contribute to the Project",
+            "description": "Join the community and help improve Blaster.",
+            "completionEvents": ["onContext:true"],
+            "media": {
+              "markdown": "content/walkthrough/step4-contribute.md"
+            }
+          }
+        ]
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "afv-test-tree",
+          "title": "Blaster",
+          "icon": "images/blaster-icon.svg"
+        }
+      ]
+    },
     "views": {
-      "test": [
+      "afv-test-tree": [
         {
-          "id": "solverConfigurations",
-          "name": "Solver Configurations",
-          "type": "webview"
+          "id": "afv-test-tree",
+          "name": "Blaster",
+          "type": "webview",
+          "icon": "images/blaster-icon.svg"
         }
       ]
-    },
-    "menus": {
-      "testing/item/context": [
-        {
-          "command": "afv.openPropertyResults",
-          "when": "(testResultState == 'passed' && testId =~ /property:.*/) || (testResultState == 'failed' && testId =~ /property:.*/)",
-          "group": "navigation"
-        },
-         {
-          "command": "afv.openPropertyResults",
-          "when": "(testResultState == 'passed' && testId =~ /property:.*/) || (testResultState == 'failed' && testId =~ /property:.*/)",
-          "group": "inline"
-        }
-      ],
-      "testing/item/result": [
-        {
-          "command": "afv.openPropertyResults",
-          "group": "navigation"
-        },
-        {
-          "command": "afv.openPropertyResults",
-          "group": "inline"
-        }
-      ],
-      "editor/lineNumber/context": [
-         {
-          "command": "afv.openPropertyResults",
-          "when": "(testResultState == 'passed') || (testResultState == 'failed')",
-          "group": "navigation"
-        }
-      ],
-      "commandPalette": [
-        {
-          "command": "afv.openPropertyResults",
-          "when": "testing.hasAnyResults && activeViewlet == 'workbench.view.extension.test'"
-        },
-         {
-        "command": "afv.runAll",
-        "when": "testing.hasRunnableTests && activeViewlet == 'workbench.view.extension.test'"
-        }
-      ]
-    },
-    "commands": [
-      {
-        "command": "afv.runAll",
-        "title": "Run All Proofs",
-        "category": "afv",
-        "description": "Rerun a proof for all properties"
-      },
-      {
-        "command": "afv.runFile",
-        "title": "Run File",
-        "category": "afv",
-        "description": "Run a proof for all properties in the current file"
-      },
-      {
-        "command": "afv.openPropertyResults",
-        "title": "View Results",
-        "category": "afv",
-        "description": "Open the property results view",
-        "icon": "$(book)"
-      }
-    ],
-    "keybindings": [
-      {
-        "command": "afv.runAll",
-        "key": "ctrl+alt+r",
-        "when": "testing.hasRunnableTests && activeViewlet == 'workbench.view.extension.test'"
-      },
-      {
-        "command": "afv.openPropertyResults",
-        "key": "ctrl+alt+v",
-        "when": "testing.hasAnyResults && activeViewlet == 'workbench.view.extension.test'"
-      }
-    ]
+    }
   },
   "scripts": {
-    "install:all": "npm install && cd webview-ui && npm install",
-    "start:webview": "cd webview-ui && npm run start",
-    "build:webview": "cd webview-ui && npm run build",
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src",
-    "test": "vscode-test"
+    "compile": "npm install && tsc -p ./ && cd webview-ui && npm install && npm run build"
   },
   "devDependencies": {
-    "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
     "@types/vscode": "^1.101.0",
     "@typescript-eslint/eslint-plugin": "^8.31.1",
     "@typescript-eslint/parser": "^8.31.1",
-    "@vscode/test-cli": "^0.0.10",
-    "@vscode/test-electron": "^2.5.2",
     "eslint": "^9.25.1",
     "typescript": "^5.8.3"
   },
   "dependencies": {
+    "@vscode/codicons": "^0.0.45",
     "all": "^0.0.0",
-    "zustand": "^5.0.6"
+    "vscode-jsonrpc": "^8.2.1"
   }
 }
