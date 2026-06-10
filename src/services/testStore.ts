@@ -214,6 +214,31 @@ export default class TestStore {
     }
   }
 
+  // Resolves input/output UTXOs for a tx hash by searching all cached test graphs.
+  // UTxO refs are stored as "txHash#outputIndex" strings and matched against graph.utxos.
+  // Returns null if no cached graph contains the transaction.
+  public getTxDetail(txHash: string): TestResultDetail | null {
+    const results = Object.values(this.testResults);
+
+    const graph = results.map(r => r.graph).find(g => g?.txs.some(t => t.hash === txHash));
+    if (!graph) return null;
+
+    const tx = graph.txs.find(t => t.hash === txHash)!;
+
+    const resolveRef = (ref: string) => {
+      const [hash, idx] = ref.split('#');
+      return graph.utxos.find(u => u.txHash === hash && u.outputIndex === Number(idx));
+    };
+
+    return {
+      type: 'tx',
+      data: {
+        inputs: tx.inputs.map(resolveRef).filter(u => u !== undefined),
+        outputs: tx.outputs.map(resolveRef).filter(u => u !== undefined),
+      },
+    };
+  }
+
   public runTest(testIds: string[]): void {
     for (const testId of testIds) {
       if (this.testResults[testId]) {

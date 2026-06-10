@@ -9,9 +9,10 @@ import ToggleSwitch from '../../components/ToggleSwitch';
 
 interface Props {
   testResult: TestResult;
+  onOpenDetail: (txHash: string) => void;
 }
 
-const TestCounterexampleTab: React.FC<Props> = ({ testResult }) => {
+const TestCounterexampleTab: React.FC<Props> = ({ testResult, onOpenDetail }) => {
   const [searchText, setSearchText] = useState('');
   const [showDiscarded, setShowDiscarded] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('alphabetical');
@@ -25,6 +26,7 @@ const TestCounterexampleTab: React.FC<Props> = ({ testResult }) => {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
+  const txIds = testResult.graph?.txs.map((tx) => tx.hash) || [];
   const steps = testResult.counterexampleSteps || [];
   const discardedCount = steps.filter((s) => s.discarded).length;
   const visibleTxs = showDiscarded ? steps : steps.filter((s) => !s.discarded);
@@ -141,7 +143,17 @@ const TestCounterexampleTab: React.FC<Props> = ({ testResult }) => {
                       key={col.id}
                       className={`h-9 px-2 border border-base-13 text-xs text-base-06 truncate ${col.align === 'left' ? 'text-left pl-2 pr-4' : 'text-center px-4'}`}
                     >
-                      {row[colIdx] ?? '-'}
+                      {col.id === 'txHash' &&
+                      txIds.includes(String(row[colIdx])) ? (
+                        <span
+                          className="cursor-pointer text-blue-06"
+                          onClick={() => onOpenDetail(String(row[colIdx]))}
+                        >
+                          {row[colIdx]}
+                        </span>
+                      ) : (
+                        (row[colIdx] ?? '-')
+                      )}
                     </td>
                   ))}
                 </tr>

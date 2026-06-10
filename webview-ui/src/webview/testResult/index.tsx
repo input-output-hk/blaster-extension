@@ -21,6 +21,13 @@ const TestResultView: React.FC<Props> = ({ vscode }) => {
   const [testResult, setTestResult] = useState<TestResult|null>(null);
   const [testTree, setTestTree] = useState<TestTree[]>([]);
 
+  const onTestOpenDetail = (txHash: string) => {
+    vscode.postMessage({
+      type: 'open-result-detail',
+      payload: { type: 'tx', id: txHash },
+    } as WebviewToExtensionMessage);
+  };
+
   const onTestSelected = (testId: string) => {
     vscode.postMessage({ type: 'change-test', payload: { testId } } as WebviewToExtensionMessage);
   };
@@ -91,11 +98,11 @@ const TestResultView: React.FC<Props> = ({ vscode }) => {
         <VscodeTabHeader slot="header">Run Property Info</VscodeTabHeader>
 
         <VscodeTabPanel className="flex flex-col flex-1 overflow-hidden p-0">
-          <TestCounterexampleTab testResult={testResult} />
+          <TestCounterexampleTab testResult={testResult} onOpenDetail={onTestOpenDetail} />
         </VscodeTabPanel>
 
         <VscodeTabPanel className="flex flex-col flex-1 overflow-hidden p-0">
-          <TestGraphTab testResult={testResult} />
+          <TestGraphTab testResult={testResult} onOpenDetail={onTestOpenDetail} />
         </VscodeTabPanel>
 
         <VscodeTabPanel className="flex flex-col flex-1 overflow-hidden p-0">

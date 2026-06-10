@@ -11,9 +11,10 @@ const nodeTypes = { node: GraphNode };
 
 interface Props {
   testResult: TestResult;
+  onOpenDetail?: (txHash: string) => void;
 }
 
-const GraphTab: React.FC<Props> = ({ testResult }) => {
+const GraphTab: React.FC<Props> = ({ testResult, onOpenDetail }) => {
   const [collapsedCols, setCollapsedCols] = useState<Set<number>>(new Set());
 
   const toggleCol = useCallback((colIdx: number) => {
@@ -32,7 +33,7 @@ const GraphTab: React.FC<Props> = ({ testResult }) => {
   return (
     <div className="flex-1 min-h-0">
       <ReactFlow
-        nodes={toFlowNodes(nodes, collapsedCols, toggleCol)}
+        nodes={toFlowNodes(nodes, collapsedCols, toggleCol, onOpenDetail)}
         edges={toFlowEdges(edges)}
         nodeTypes={nodeTypes}
         defaultViewport={{ x: 20, y: 20, zoom: 1 }}

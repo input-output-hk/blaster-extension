@@ -78,6 +78,8 @@ export default class TestResultView {
       }
     );
 
+    this.panel.iconPath = vscode.Uri.joinPath(this.context.extension.extensionUri, 'images', 'blaster-logo.svg');
+
     // Listen for messages from the webview
     this.panel.webview.onDidReceiveMessage(
       (message: WebviewToExtensionMessage) => {
@@ -92,6 +94,11 @@ export default class TestResultView {
           case 'run-test':
             this.runCurrentTest();
             break;
+          case 'open-result-detail': {
+            const detail = this.context.testStore.getTxDetail(message.payload.id);
+            if (detail !== null) this.context.testResultDetail.open(this.context, detail);
+            break;
+          }
         }
       },
       undefined,

@@ -6,6 +6,7 @@ export interface GraphNodeCardProps extends Record<string, unknown> {
   address: string;
   fields: { label: string; value: string }[];
   onToggleExpand?: () => void;
+  onOpenDetail?: (txHash: string) => void;
 }
 
 const HEADER_BG: Record<GraphNodeCardProps['type'], string> = {
@@ -27,6 +28,7 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
   address,
   fields,
   onToggleExpand,
+  onOpenDetail,
 }) => {
   return (
     <div className="flex flex-col w-55 rounded-[5px] overflow-clip">
@@ -35,11 +37,21 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
         <span className="bg-blue-01 text-base-13 text-[9px] rounded px-1 py-px">
           {identifier}
         </span>
-        {onToggleExpand && (
+        {(onToggleExpand || (type === 'tx' && onOpenDetail)) && (
           <div className="ml-auto flex items-center">
-            <button onClick={onToggleExpand} className="cursor-pointer flex items-center p-1">
-              <i className="codicon codicon-collapse-all text-base-01 text-[14px]" />
-            </button>
+            {onToggleExpand && (
+              <button onClick={onToggleExpand} className="cursor-pointer flex items-center p-1">
+                <i className="codicon codicon-collapse-all text-base-01 text-[14px]" />
+              </button>
+            )}
+            {type === 'tx' && onOpenDetail && (
+              <button
+                onClick={() => onOpenDetail(address)}
+                className="cursor-pointer flex items-center p-1"
+              >
+                <i className="codicon codicon-open-preview text-base-01 text-[14px]" />
+              </button>
+            )}
           </div>
         )}
       </div>
