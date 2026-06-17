@@ -59,7 +59,7 @@ const TestCounterexampleTab: React.FC<Props> = ({ testResult, onOpenDetail }) =>
   ]);
 
   return (
-    <div className="flex flex-col overflow-hidden flex-1 m-4">
+    <div className="flex flex-col overflow-hidden flex-1 mt-4">
       {/* Search & filter bar */}
       <div className="flex items-center justify-between px-4 py-2 shrink-0 bg-base-17">
         <VscodeTextfield

@@ -39,14 +39,16 @@ const toUtxoNode = (utxo: TestGraph["utxos"][number]): GraphNode => {
     fields.push({ label: "Datum", value: utxo.datum });
   }
   for (const token of tokens) {
-    fields.push({ label: "Token", value: `${token.unit.slice(0, 8)}... ×${token.quantity}` });
+    fields.push({
+      label: "Token",
+      value: `${token.unit.slice(0, 8)}... ×${token.quantity}`,
+    });
   }
 
   return {
     id: utxoId(utxo.txHash, utxo.outputIndex),
     card: {
       type: "utxo",
-      identifier: truncateHash(utxo.txHash),
       address: utxo.address,
       fields,
     },
@@ -59,14 +61,16 @@ const toTxNode = (tx: TestGraph["txs"][number]): GraphNode => {
     { label: "Fees", value: lovelaceToAda(tx.fees) },
   ];
   if (tx.inputs.length > 0) {
-    fields.push({ label: "Input Reference", value: truncateHash(tx.inputs[0]) });
+    fields.push({
+      label: "Input Reference",
+      value: truncateHash(tx.inputs[0]),
+    });
   }
 
   return {
     id: txId(tx.hash),
     card: {
       type: "tx",
-      identifier: truncateHash(tx.hash),
       address: tx.hash,
       fields,
     },
@@ -80,7 +84,7 @@ const toTxNode = (tx: TestGraph["txs"][number]): GraphNode => {
 // from both sides — the `placed` set prevents it being added twice.
 export const toGraphData = (graph: TestGraph): GraphData => {
   const utxoMap = new Map(
-    graph.utxos.map((u) => [utxoId(u.txHash, u.outputIndex), u])
+    graph.utxos.map((u) => [utxoId(u.txHash, u.outputIndex), u]),
   );
 
   const sortedTxs = [...graph.txs].sort((a, b) => a.slot - b.slot);
@@ -99,7 +103,8 @@ export const toGraphData = (graph: TestGraph): GraphData => {
         id: `${inputId}-${tId}`,
         source: inputId,
         target: tId,
-        ...(utxoMap.get(inputId)?.referenceScriptHash !== undefined && { dashed: true }),
+        // Leave this commented. Will decide later the condition for dashed edges.
+        // ...(utxoMap.get(inputId)?.referenceScriptHash !== undefined && { dashed: true }),
       });
       if (!placed.has(inputId)) {
         const utxo = utxoMap.get(inputId);

@@ -31,7 +31,7 @@ const GraphTab: React.FC<Props> = ({ testResult, onOpenDetail }) => {
   const { nodes, edges } = toGraphData(testResult.graph);
 
   return (
-    <div className="flex-1 min-h-0">
+    <div className="flex-1 min-h-0 bg-base-17 rounded-2xl mt-4">
       <ReactFlow
         nodes={toFlowNodes(nodes, collapsedCols, toggleCol, onOpenDetail)}
         edges={toFlowEdges(edges)}

@@ -120,4 +120,5 @@ type WebviewToExtensionMessage =
   | {
       type: "open-result-detail";
       payload: { type: "tx" | "datum" | "redeemer"; id: string };
-    };
+    }
+  | { type: "notify"; payload: { text: string } };
