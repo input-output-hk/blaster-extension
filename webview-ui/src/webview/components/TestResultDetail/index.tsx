@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { WebviewApi } from "vscode-webview";
 import Paginator from "../Paginator";
+import RunningIndicator from "../RunningIndicator";
 
 interface Props {
   vscode: WebviewApi<unknown>;
@@ -30,6 +31,7 @@ const Section: React.FC<{
 
 const TestResultDetail: React.FC<Props> = ({ vscode }) => {
   const [detail, setDetail] = useState<TestResultTxDetail | null>(null);
+  const [status, setStatus] = useState<TestResult['status']>('running');
   const [inputIndex, setInputIndex] = useState(0);
   const [outputIndex, setOutputIndex] = useState(0);
 
@@ -38,6 +40,9 @@ const TestResultDetail: React.FC<Props> = ({ vscode }) => {
 
     const handler = (event: MessageEvent) => {
       const message = event.data as ExtensionToWebviewMessage;
+      if (message.type === "test-result") {
+        setStatus(message.payload.status);
+      }
       if (message.type === "test-result-detail") {
         setDetail(message.payload as TestResultTxDetail);
         setInputIndex(0);
@@ -47,6 +52,8 @@ const TestResultDetail: React.FC<Props> = ({ vscode }) => {
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
   }, [vscode]);
+
+  if (status === 'running') return <div className="flex flex-col h-full"><RunningIndicator /></div>;
 
   return (
     <div className="flex flex-col h-full overflow-hidden">

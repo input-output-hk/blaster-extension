@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { ReactFlow } from '@xyflow/react';
 
 import GraphNode from '../../components/graph/GraphNode';
+import RunningIndicator from '../../components/RunningIndicator';
 import { toFlowNodes, toFlowEdges } from '../../utils/flowUtils';
 import { toGraphData } from '../../utils/graphMapper';
 
@@ -26,6 +27,7 @@ const GraphTab: React.FC<Props> = ({ testResult, onOpenDetail }) => {
     });
   }, []);
 
+  if (testResult.status === 'running') return <RunningIndicator />;
   if (!testResult.graph) return <></>;
 
   const { nodes, edges } = toGraphData(testResult.graph);

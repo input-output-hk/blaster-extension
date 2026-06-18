@@ -6,6 +6,7 @@ import {
 
 import SortMenu, { type SortOption } from '../../components/SortMenu';
 import ToggleSwitch from '../../components/ToggleSwitch';
+import RunningIndicator from '../../components/RunningIndicator';
 
 interface Props {
   testResult: TestResult;
@@ -113,10 +114,7 @@ const TestCounterexampleTab: React.FC<Props> = ({ testResult, onOpenDetail }) =>
       </div>
 
       {testResult.status === 'running' ? (
-        <div className="flex flex-col flex-1 items-center justify-center gap-2 text-blue-06">
-          <i className="codicon codicon-loading codicon-modifier-spin text-2xl" />
-          <span className="text-xs">Running…</span>
-        </div>
+        <RunningIndicator />
       ) : (
         <div className="flex-1 overflow-auto">
           <table className="w-full border-collapse table-fixed">

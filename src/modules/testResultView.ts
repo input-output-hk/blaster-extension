@@ -117,7 +117,7 @@ export default class TestResultView {
               message.payload.id,
             );
             if (detail !== null)
-              this.context.testResultDetail.open(this.context, detail);
+              this.context.testResultDetail.open(this.context, detail, this.currentTestId!);
             break;
           }
         }

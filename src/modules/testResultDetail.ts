@@ -5,12 +5,23 @@ import { getWebviewHtml } from "../utils/webview";
 
 export default class TestResultDetailPanel {
   private panel: vscode.WebviewPanel | null = null;
+  private currentTestId: string | null = null;
+  private context: AfvContext | null = null;
 
   constructor() {}
 
-  public activate(_context: AfvContext) {}
+  public activate(context: AfvContext) {
+    this.context = context;
+    context.testStore.onTestUpdate((result: TestResult) => {
+      if (this.panel !== null && this.currentTestId === result.test.id) {
+        this.panel.webview.postMessage({ type: "test-result", payload: result });
+      }
+    });
+  }
 
-  public open(context: AfvContext, detail: TestResultDetail): void {
+  public open(context: AfvContext, detail: TestResultDetail, testId: string): void {
+    this.currentTestId = testId;
+
     if (this.panel !== null) {
       this.panel.reveal(vscode.ViewColumn.Four);
       if (detail) {
@@ -46,10 +57,10 @@ export default class TestResultDetailPanel {
 
     this.panel.webview.onDidReceiveMessage(
       (message: WebviewToExtensionMessage) => {
-        if (message.type === "webview-ready") {
-          this.panel?.webview.postMessage({
-            type: "test-result-detail",
-            payload: detail,
+        if (message.type === "webview-ready" && this.currentTestId !== null) {
+          context.testStore.fetchTestResult(this.currentTestId).then((result: TestResult) => {
+            this.panel?.webview.postMessage({ type: "test-result", payload: result });
+            this.panel?.webview.postMessage({ type: "test-result-detail", payload: detail });
           });
         }
       },
