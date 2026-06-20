@@ -59,6 +59,9 @@ type TestCounterexampleStep = {
   discarded: boolean;
 };
 
+type PlutusDataField = { bytes: string } | { int: number } | { list: PlutusDataField[] } | { map: unknown };
+type PlutusData = { constructor: number; fields: PlutusDataField[] };
+
 type TestGraph = {
   txs: {
     hash: string;
@@ -78,7 +81,7 @@ type TestGraph = {
     txHash: string;
     outputIndex: number;
     address: string;
-    datum?: string;
+    datum?: string | PlutusData;
     referenceScriptHash?: string;
     amount: {
       unit: string;

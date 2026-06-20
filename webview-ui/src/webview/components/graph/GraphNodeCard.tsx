@@ -1,10 +1,12 @@
 import React from 'react';
+import { Tooltip } from 'react-tooltip';
+import 'react-tooltip/dist/react-tooltip.css';
 import { useNotify } from '../../hooks/useNotify';
 
 export interface GraphNodeCardProps extends Record<string, unknown> {
   type: 'tx' | 'utxo';
   address: string;
-  fields: { label: string; value: string }[];
+  fields: { label: string; value: string; tooltip?: string[] }[];
   onToggleExpand?: () => void;
   onOpenDetail?: (txHash: string) => void;
 }
@@ -88,6 +90,17 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
             <div className="flex flex-row items-center gap-1 px-3 py-0.75">
               <span>{field.label}</span>
               <span className="opacity-70">{field.value}</span>
+              {field.tooltip && (
+                <>
+                  <i
+                    className="codicon codicon-info text-[11px] cursor-default"
+                    data-tooltip-id={`tooltip-${address.slice(0, 12)}-${field.label}`}
+                  />
+                  <Tooltip id={`tooltip-${address.slice(0, 12)}-${field.label}`}>
+                    {field.tooltip.map((val, i) => <div key={i}>{val}</div>)}
+                  </Tooltip>
+                </>
+              )}
             </div>
             <Separator />
           </React.Fragment>

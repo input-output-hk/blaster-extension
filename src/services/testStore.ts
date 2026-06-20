@@ -58,6 +58,14 @@ const MOCK_GRAPH = {
     outputIndex: 0,
     address: 'addr1wy8ccvgzslpjf9yhrprvmqulpmjpkpxf8c0hvtjwvw8n6pqdcrnp0',
     referenceScriptHash: '1d9c0b541adc300c19ddc6b9fb63c0bfe32b1508305ba65b8762dc7b',
+    datum: {
+      constructor: 0,
+      fields: [
+        { bytes: '626172' },
+        { int: 42 },
+        { bytes: '416c696365' },
+      ],
+    },
     amount: [{
       unit: 'lovelace',
       quantity: 12507620,
@@ -66,7 +74,7 @@ const MOCK_GRAPH = {
     txHash: '26741de9ee337aa24ebeea078832a901c4deacce261e142a23186b1691513863',
     outputIndex: 1,
     address: 'addr1wywecz65rtwrqrqemhrtn7mrczl7x2c4pqc9hfjmsa3dc7cr5pvqw',
-    datum: 'Test Datum',
+    datum: 'foobar',
     amount: [{
       unit: 'lovelace',
       quantity: 1124910,

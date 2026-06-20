@@ -1,4 +1,20 @@
 import type { GraphNodeCardProps } from "../components/graph/GraphNodeCard";
+import { hexToString } from "./cardanoUtils";
+
+const buildDatumDisplay = (datum: string | PlutusData): string => {
+  if (typeof datum === "string") return datum;
+  return "Plutus data";
+};
+
+/** Returns one display string per datum field — bytes are decoded to UTF-8, ints are stringified. */
+const buildDatumTooltip = (datum: string | PlutusData): string[] => {
+  if (typeof datum === "string") return [datum];
+  return datum.fields.map((field) => {
+    if ("bytes" in field) return hexToString(field.bytes);
+    if ("int" in field) return String(field.int);
+    return "...";
+  });
+};
 
 export interface GraphNode {
   id: string;
@@ -36,7 +52,11 @@ const toUtxoNode = (utxo: TestGraph["utxos"][number]): GraphNode => {
     fields.push({ label: "Amount", value: lovelaceToAda(lovelace.quantity) });
   }
   if (utxo.datum) {
-    fields.push({ label: "Datum", value: utxo.datum });
+    fields.push({
+      label: "Datum",
+      value: buildDatumDisplay(utxo.datum),
+      tooltip: buildDatumTooltip(utxo.datum),
+    });
   }
   for (const token of tokens) {
     fields.push({
