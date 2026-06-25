@@ -1,18 +1,32 @@
 import type { GraphNodeCardProps } from "../components/graph/GraphNodeCard";
-import { hexToString } from "./cardanoUtils";
+import { hexToString, isPlutusNode } from "./cardanoUtils";
 
-const buildDatumDisplay = (datum: string | PlutusData): string => {
+export type DatumNode = { value: string; level: number };
+
+const buildDatumDisplay = (datum: unknown): string => {
   if (typeof datum === "string") return datum;
   return "Plutus data";
 };
 
-/** Returns one display string per datum field — bytes are decoded to UTF-8, ints are stringified. */
-const buildDatumTooltip = (datum: string | PlutusData): string[] => {
-  if (typeof datum === "string") return [datum];
-  return datum.fields.map((field) => {
-    if ("bytes" in field) return hexToString(field.bytes);
-    if ("int" in field) return String(field.int);
-    return "...";
+/**
+ * Builds the tooltip tree for a datum. Each node in the tree is represented by a string and level used for indentation.
+ * @param datum 
+ * @param level 
+ * @returns 
+ */
+const buildDatumTree = (datum: unknown, level = 0): DatumNode[] => {
+  if (typeof datum === "string") return [{ value: datum, level }];
+  if (!isPlutusNode(datum)) return [{ value: String(datum), level }];
+  return datum.fields.flatMap((field) => {
+    if (typeof field === "object" && field !== null) {
+      if ("bytes" in field) return [{ value: hexToString((field as { bytes: string }).bytes), level }];
+      if ("int" in field) return [{ value: String((field as { int: unknown }).int), level }];
+      // needs real-world examples of datums
+      // if ("list" in field) return [{ value: "list", level }];
+      // if ("map" in field) return [{ value: "map", level }];
+      if ("constructor" in field) return buildDatumTree(field, level + 1);
+    }
+    return [{ value: String(field), level }];
   });
 };
 
@@ -55,7 +69,7 @@ const toUtxoNode = (utxo: TestGraph["utxos"][number]): GraphNode => {
     fields.push({
       label: "Datum",
       value: buildDatumDisplay(utxo.datum),
-      tooltip: buildDatumTooltip(utxo.datum),
+      tooltip: buildDatumTree(utxo.datum),
     });
   }
   for (const token of tokens) {

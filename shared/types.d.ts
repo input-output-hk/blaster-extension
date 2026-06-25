@@ -81,7 +81,7 @@ type TestGraph = {
     txHash: string;
     outputIndex: number;
     address: string;
-    datum?: string | PlutusData;
+    datum?: unknown;
     referenceScriptHash?: string;
     amount: {
       unit: string;

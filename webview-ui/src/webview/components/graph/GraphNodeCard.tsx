@@ -1,12 +1,14 @@
 import React from 'react';
+import ReactDOM from 'react-dom';
 import { Tooltip } from 'react-tooltip';
 import 'react-tooltip/dist/react-tooltip.css';
 import { useNotify } from '../../hooks/useNotify';
+import type { DatumNode } from '../../utils/graphMapper';
 
 export interface GraphNodeCardProps extends Record<string, unknown> {
   type: 'tx' | 'utxo';
   address: string;
-  fields: { label: string; value: string; tooltip?: string[] }[];
+  fields: { label: string; value: string; tooltip?: DatumNode[] }[];
   onToggleExpand?: () => void;
   onOpenDetail?: (txHash: string) => void;
 }
@@ -25,6 +27,14 @@ const HEADER_LABEL: Record<GraphNodeCardProps['type'], string> = {
   tx: 'Transaction',
   utxo: 'UTXO',
 };
+
+const DatumTree: React.FC<{ nodes: DatumNode[] }> = ({ nodes }) => (
+  <>
+    {nodes.map((node, i) => (
+      <div key={i} style={{ paddingLeft: node.level * 16 }}>{node.value}</div>
+    ))}
+  </>
+);
 
 const Separator = () => (
   <div className="px-2 py-1">
@@ -96,9 +106,12 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
                     className="codicon codicon-info text-[11px] cursor-default"
                     data-tooltip-id={`tooltip-${address.slice(0, 12)}-${field.label}`}
                   />
-                  <Tooltip id={`tooltip-${address.slice(0, 12)}-${field.label}`}>
-                    {field.tooltip.map((val, i) => <div key={i}>{val}</div>)}
-                  </Tooltip>
+                  {ReactDOM.createPortal(
+                    <Tooltip id={`tooltip-${address.slice(0, 12)}-${field.label}`}>
+                      <DatumTree nodes={field.tooltip} />
+                    </Tooltip>,
+                    document.body
+                  )}
                 </>
               )}
             </div>
