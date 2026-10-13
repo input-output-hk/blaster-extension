@@ -1,7 +1,7 @@
 {
   "name": "afv-extension",
-  "publisher": "Blaster",
-  "displayName": "afv-extension",
+  "publisher": "cardano-ha",
+  "displayName": "Blaster",
   "description": "Perform automated formal verification on Cardano smart contracts written in Aiken, Plinth, and UPLC in Visual Studio Code.",
   "icon": "images/blaster-logo.png",
   "version": "0.0.1",
@@ -86,6 +86,7 @@
     }
   },
   "scripts": {
+    "vscode:prepublish": "npm run compile",
     "compile": "npm install && tsc -p ./ && cd webview-ui && npm install && npm run build"
   },
   "devDependencies": {
