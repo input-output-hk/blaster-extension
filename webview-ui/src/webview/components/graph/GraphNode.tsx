@@ -12,10 +12,11 @@ type GraphCardNodeData =
 // wrapped in ReactFlow handles.
 const GraphCardNode: React.FC<{ data: GraphCardNodeData }> = ({ data }) => (
   <>
-    <Handle type="target" position={Position.Left} isConnectable={false} />
+    <Handle type="target" position={Position.Left} isConnectable={false}  style={{ opacity: 0 }} />
     {data.grouped
       ? <GraphNodeGroupCard {...data} />
       : <GraphNodeCard {...data} />}
+    <Handle type="source" position={Position.Right} isConnectable={false} />
     <Handle type="source" position={Position.Right} isConnectable={false} />
   </>
 );

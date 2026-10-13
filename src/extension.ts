@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import TestStore from './services/testStore';
 import TestTreeView from './modules/testTreeView';
 import TestResultView from './modules/testResultView';
+import TestResultDetailPanel from './modules/testResultDetail';
 import { getBinaryPath } from './utils/binary';
 
 export type AfvContext = {
@@ -11,6 +12,7 @@ export type AfvContext = {
   testStore: TestStore;
   testTreeView: TestTreeView;
   testResultView: TestResultView;
+  testResultDetail: TestResultDetailPanel;
 };
 
 // This method is called when your extension is activated
@@ -41,12 +43,16 @@ function initializeExtension(context: vscode.ExtensionContext) {
   // Init test result view
   const testResultView = new TestResultView();
 
+  // Init property detail panel
+  const testResultDetail = new TestResultDetailPanel();
+
   // Init context
   const afvContext: AfvContext = {
     extension: context,
     testStore,
     testTreeView,
     testResultView,
+    testResultDetail,
   };
 
   // Init workspaces
@@ -54,6 +60,7 @@ function initializeExtension(context: vscode.ExtensionContext) {
     // Activate modules
     testTreeView.activate(afvContext);
     testResultView.activate(afvContext);
+    testResultDetail.activate(afvContext);
   });
 }
 

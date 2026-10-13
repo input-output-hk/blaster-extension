@@ -1,5 +1,5 @@
-import { MarkerType, type Node } from '@xyflow/react';
-import type { GraphNode, GraphEdge } from './graphMapper';
+import { MarkerType, type Node, type Edge } from "@xyflow/react";
+import type { GraphNode, GraphEdge } from "./graphMapper";
 
 const COLUMN_WIDTH = 320;
 const ROW_HEIGHT = 210;
@@ -46,6 +46,7 @@ export const toFlowNodes = (
   cols: GraphNode[][],
   collapsedCols: Set<number>,
   onToggleCol: (colIdx: number) => void,
+  onOpenDetail?: (txHash: string) => void,
 ): Node[] => {
   const tallest = Math.max(0, ...cols.filter(Boolean).map((c) => c.length));
   return cols.flatMap((col, colIdx) => {
@@ -72,13 +73,14 @@ export const toFlowNodes = (
         grouped: false,
         ...n.card,
         ...(isGroup && { onToggleExpand: toggle }),
+        ...(onOpenDetail && { onOpenDetail }),
       }),
     );
   });
 };
 
 // Maps GraphEdges to ReactFlow edge objects, with arrows and optional dashed style.
-export const toFlowEdges = (edges: GraphEdge[]) =>
+export const toFlowEdges = (edges: GraphEdge[]): Edge[] =>
   edges.map((e) => ({
     id: e.id,
     source: e.source,

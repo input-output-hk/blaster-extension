@@ -1,7 +1,7 @@
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
 
-import { AfvContext } from '../extension';
-import { getWebviewHtml } from '../utils/webview';
+import { AfvContext } from "../extension";
+import { getWebviewHtml } from "../utils/webview";
 
 export default class TestResultView {
   private context: AfvContext;
@@ -16,7 +16,10 @@ export default class TestResultView {
     this.context = context;
     context.testStore.onTestUpdate((result: TestResult) => {
       if (this.panel !== null && this.currentTestId === result.test.id) {
-        this.panel.webview.postMessage({ type: 'test-result', payload: result });
+        this.panel.webview.postMessage({
+          type: "test-result",
+          payload: result,
+        });
       }
     });
   }
@@ -27,21 +30,29 @@ export default class TestResultView {
 
   private sendTestTreeToWebview(testTree: TestTree[]): void {
     if (this.panel !== null) {
-      this.panel.webview.postMessage({ type: 'test-tree', payload: { testTree } } as ExtensionToWebviewMessage);
+      this.panel.webview.postMessage({
+        type: "test-tree",
+        payload: { testTree },
+      } as ExtensionToWebviewMessage);
     }
   }
 
   private fetchCurrentTestResult(): void {
     if (this.currentTestId !== null) {
-      this.context.testStore.fetchTestResult(this.currentTestId).then((result: TestResult) => {
-        this.sendCurrentTestResultToWebview(result);
-      });
+      this.context.testStore
+        .fetchTestResult(this.currentTestId)
+        .then((result: TestResult) => {
+          this.sendCurrentTestResultToWebview(result);
+        });
     }
   }
 
   private sendCurrentTestResultToWebview(result: TestResult): void {
     if (this.panel !== null) {
-      this.panel.webview.postMessage({ type: 'test-result', payload: result } as ExtensionToWebviewMessage);
+      this.panel.webview.postMessage({
+        type: "test-result",
+        payload: result,
+      } as ExtensionToWebviewMessage);
     }
   }
 
@@ -68,37 +79,62 @@ export default class TestResultView {
 
     // Register the test result view
     this.panel = vscode.window.createWebviewPanel(
-      'afv-test-result',
-      'Test Result',
+      "afv-test-result",
+      "Test Result",
       vscode.ViewColumn.Two,
       {
         enableScripts: true,
         retainContextWhenHidden: true,
         localResourceRoots: [this.context.extension.extensionUri],
-      }
+      },
+    );
+
+    this.panel.iconPath = vscode.Uri.joinPath(
+      this.context.extension.extensionUri,
+      "images",
+      "blaster-logo.svg",
     );
 
     // Listen for messages from the webview
     this.panel.webview.onDidReceiveMessage(
       (message: WebviewToExtensionMessage) => {
         switch (message.type) {
-          case 'webview-ready':
+          case "webview-ready":
             this.fetchTestTree();
             this.fetchCurrentTestResult();
             break;
-          case 'change-test':
+          case "change-test":
             this.changeCurrentTest(message.payload.testId);
             break;
-          case 'run-test':
+          case "run-test":
             this.runCurrentTest();
             break;
+          case "notify":
+            vscode.window.showInformationMessage(message.payload.text);
+            break;
+          case "open-result-detail": {
+            const detail = this.context.testStore.getTxDetail(
+              message.payload.id,
+            );
+            if (detail !== null)
+              this.context.testResultDetail.open(this.context, detail, this.currentTestId!);
+            break;
+          }
         }
       },
       undefined,
-      this.context.extension.subscriptions
+      this.context.extension.subscriptions,
     );
 
-    this.panel.webview.html = getWebviewHtml(this.panel.webview, this.context.extension.extensionUri, 'testResult');
-    this.panel.onDidDispose(() => this.panel = null, null, this.context.extension.subscriptions);
+    this.panel.webview.html = getWebviewHtml(
+      this.panel.webview,
+      this.context.extension.extensionUri,
+      "testResult",
+    );
+    this.panel.onDidDispose(
+      () => (this.panel = null),
+      null,
+      this.context.extension.subscriptions,
+    );
   }
 }

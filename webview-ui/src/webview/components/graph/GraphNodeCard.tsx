@@ -1,17 +1,40 @@
 import React from 'react';
+import ReactDOM from 'react-dom';
+import { Tooltip } from 'react-tooltip';
+import 'react-tooltip/dist/react-tooltip.css';
+import { useNotify } from '../../hooks/useNotify';
+import type { DatumNode } from '../../utils/graphMapper';
 
 export interface GraphNodeCardProps extends Record<string, unknown> {
   type: 'tx' | 'utxo';
-  identifier: string;
   address: string;
-  fields: { label: string; value: string }[];
+  fields: { label: string; value: string; tooltip?: DatumNode[] }[];
   onToggleExpand?: () => void;
+  onOpenDetail?: (txHash: string) => void;
 }
 
 const HEADER_BG: Record<GraphNodeCardProps['type'], string> = {
   utxo: 'bg-blue-09',
   tx: 'bg-green-05',
 };
+
+const HEADER_ICON: Record<GraphNodeCardProps['type'], string> = {
+  tx: 'codicon-arrow-both',
+  utxo: 'codicon-credit-card',
+};
+
+const HEADER_LABEL: Record<GraphNodeCardProps['type'], string> = {
+  tx: 'Transaction',
+  utxo: 'UTXO',
+};
+
+const DatumTree: React.FC<{ nodes: DatumNode[] }> = ({ nodes }) => (
+  <>
+    {nodes.map((node, i) => (
+      <div key={i} style={{ paddingLeft: node.level * 16 }}>{node.value}</div>
+    ))}
+  </>
+);
 
 const Separator = () => (
   <div className="px-2 py-1">
@@ -23,31 +46,52 @@ const Separator = () => (
 // Only the first 2 fields are shown inline; additional fields are hidden behind a "View details" button.
 const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
   type,
-  identifier,
   address,
   fields,
   onToggleExpand,
+  onOpenDetail,
 }) => {
+  const notify = useNotify();
+  const handleCopyAddress = () => {
+    navigator.clipboard.writeText(address);
+    notify('Address copied');
+  };
   return (
     <div className="flex flex-col w-55 rounded-[5px] overflow-clip">
       <div className={`flex flex-row items-center ${HEADER_BG[type]} h-5.5 px-1 gap-1`}>
-        <span className="text-base-01 text-[12px]">{type}</span>
-        <span className="bg-blue-01 text-base-13 text-[9px] rounded px-1 py-px">
-          {identifier}
-        </span>
-        {onToggleExpand && (
+        <i className={`codicon ${HEADER_ICON[type]} text-base-01 text-[12px]`} />
+        <span className="text-base-01 text-[12px]">{HEADER_LABEL[type]}</span>
+        {(onToggleExpand || (type === 'tx' && onOpenDetail)) && (
           <div className="ml-auto flex items-center">
-            <button onClick={onToggleExpand} className="cursor-pointer flex items-center p-1">
-              <i className="codicon codicon-collapse-all text-base-01 text-[14px]" />
-            </button>
+            {onToggleExpand && (
+              <button onClick={onToggleExpand} className="cursor-pointer flex items-center p-1">
+                <i className="codicon codicon-collapse-all text-base-01 text-[14px]" />
+              </button>
+            )}
+            {type === 'tx' && onOpenDetail && (
+              <button
+                onClick={() => onOpenDetail(address)}
+                className="cursor-pointer flex items-center p-1"
+              >
+                <i className="codicon codicon-open-preview text-base-01 text-[14px]" />
+              </button>
+            )}
           </div>
         )}
       </div>
 
       <div className="flex flex-col bg-base-18 pt-2 text-base-06 text-[11px]">
         <div className="flex flex-col px-3 py-0.75">
-          <span>Address</span>
-          <span className="opacity-70">{address}</span>
+          <div className="flex items-center gap-1">
+            <span>Address</span>
+            <button
+              className="cursor-pointer flex items-center text-base-06 hover:text-blue-04 active:text-blue-01 transition-colors duration-150"
+              onClick={handleCopyAddress}
+            >
+              <i className="codicon codicon-copy text-[11px]" />
+            </button>
+          </div>
+          <span className="opacity-70 break-all">{address}</span>
         </div>
         <Separator />
 
@@ -56,6 +100,20 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
             <div className="flex flex-row items-center gap-1 px-3 py-0.75">
               <span>{field.label}</span>
               <span className="opacity-70">{field.value}</span>
+              {field.tooltip && (
+                <>
+                  <i
+                    className="codicon codicon-info text-[11px] cursor-default"
+                    data-tooltip-id={`tooltip-${address.slice(0, 12)}-${field.label}`}
+                  />
+                  {ReactDOM.createPortal(
+                    <Tooltip id={`tooltip-${address.slice(0, 12)}-${field.label}`}>
+                      <DatumTree nodes={field.tooltip} />
+                    </Tooltip>,
+                    document.body
+                  )}
+                </>
+              )}
             </div>
             <Separator />
           </React.Fragment>

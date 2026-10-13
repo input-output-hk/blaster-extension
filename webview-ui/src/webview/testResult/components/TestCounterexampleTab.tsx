@@ -6,12 +6,14 @@ import {
 
 import SortMenu, { type SortOption } from '../../components/SortMenu';
 import ToggleSwitch from '../../components/ToggleSwitch';
+import RunningIndicator from '../../components/RunningIndicator';
 
 interface Props {
   testResult: TestResult;
+  onOpenDetail: (txHash: string) => void;
 }
 
-const TestCounterexampleTab: React.FC<Props> = ({ testResult }) => {
+const TestCounterexampleTab: React.FC<Props> = ({ testResult, onOpenDetail }) => {
   const [searchText, setSearchText] = useState('');
   const [showDiscarded, setShowDiscarded] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('alphabetical');
@@ -25,6 +27,7 @@ const TestCounterexampleTab: React.FC<Props> = ({ testResult }) => {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
+  const txIds = testResult.graph?.txs.map((tx) => tx.hash) || [];
   const steps = testResult.counterexampleSteps || [];
   const discardedCount = steps.filter((s) => s.discarded).length;
   const visibleTxs = showDiscarded ? steps : steps.filter((s) => !s.discarded);
@@ -57,7 +60,7 @@ const TestCounterexampleTab: React.FC<Props> = ({ testResult }) => {
   ]);
 
   return (
-    <div className="flex flex-col overflow-hidden flex-1 m-4">
+    <div className="flex flex-col overflow-hidden flex-1 mt-4">
       {/* Search & filter bar */}
       <div className="flex items-center justify-between px-4 py-2 shrink-0 bg-base-17">
         <VscodeTextfield
@@ -111,10 +114,7 @@ const TestCounterexampleTab: React.FC<Props> = ({ testResult }) => {
       </div>
 
       {testResult.status === 'running' ? (
-        <div className="flex flex-col flex-1 items-center justify-center gap-2 text-blue-06">
-          <i className="codicon codicon-loading codicon-modifier-spin text-2xl" />
-          <span className="text-xs">Running…</span>
-        </div>
+        <RunningIndicator />
       ) : (
         <div className="flex-1 overflow-auto">
           <table className="w-full border-collapse table-fixed">
@@ -141,7 +141,17 @@ const TestCounterexampleTab: React.FC<Props> = ({ testResult }) => {
                       key={col.id}
                       className={`h-9 px-2 border border-base-13 text-xs text-base-06 truncate ${col.align === 'left' ? 'text-left pl-2 pr-4' : 'text-center px-4'}`}
                     >
-                      {row[colIdx] ?? '-'}
+                      {col.id === 'txHash' &&
+                      txIds.includes(String(row[colIdx])) ? (
+                        <span
+                          className="cursor-pointer text-blue-06"
+                          onClick={() => onOpenDetail(String(row[colIdx]))}
+                        >
+                          {row[colIdx]}
+                        </span>
+                      ) : (
+                        (row[colIdx] ?? '-')
+                      )}
                     </td>
                   ))}
                 </tr>
