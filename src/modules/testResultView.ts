@@ -1,86 +1,39 @@
-import * as vscode from "vscode";
+import * as vscode from 'vscode';
+import { getWebviewHtml } from '../utils/webview';
 
-import { AfvContext } from "../extension";
-import { getWebviewHtml } from "../utils/webview";
+import type { BlasterContext } from '../extension';
 
 export default class TestResultView {
-  private context: AfvContext;
+  private context: BlasterContext;
   private panel: vscode.WebviewPanel | null = null;
-  private currentTestId: string | null = null;
+  private selectedTest: OpenResultPayload | null = null;
+  private requestVersion = 0;
 
   constructor() {
-    this.context = {} as AfvContext;
+    this.context = {} as BlasterContext;
   }
 
-  public activate(context: AfvContext) {
+  public activate(context: BlasterContext) {
     this.context = context;
-    context.testStore.onTestUpdate((result: TestResult) => {
-      if (this.panel !== null && this.currentTestId === result.test.id) {
-        this.panel.webview.postMessage({
-          type: "test-result",
-          payload: result,
-        });
-      }
-    });
+    context.extension.subscriptions.push(
+      this.context.testStore.onTestTreeUpdate(this.onTestTreeUpdate.bind(this))
+    );
   }
 
-  private fetchTestTree(): void {
-    this.sendTestTreeToWebview(this.context.testStore.getTestTree() || []);
-  }
-
-  private sendTestTreeToWebview(testTree: TestTree[]): void {
-    if (this.panel !== null) {
-      this.panel.webview.postMessage({
-        type: "test-tree",
-        payload: { testTree },
-      } as ExtensionToWebviewMessage);
-    }
-  }
-
-  private fetchCurrentTestResult(): void {
-    if (this.currentTestId !== null) {
-      this.context.testStore
-        .fetchTestResult(this.currentTestId)
-        .then((result: TestResult) => {
-          this.sendCurrentTestResultToWebview(result);
-        });
-    }
-  }
-
-  private sendCurrentTestResultToWebview(result: TestResult): void {
-    if (this.panel !== null) {
-      this.panel.webview.postMessage({
-        type: "test-result",
-        payload: result,
-      } as ExtensionToWebviewMessage);
-    }
-  }
-
-  private changeCurrentTest(testId: string): void {
-    this.currentTestId = testId;
-    this.fetchCurrentTestResult();
-  }
-
-  private runCurrentTest(): void {
-    if (this.currentTestId !== null) {
-      this.context.testStore.runTest([this.currentTestId]);
-    }
-  }
-
-  public open(testResult: TestResult): void {
-    this.currentTestId = testResult.test.id;
-
+  public open(workspaceId: string, testId: string): void {
+    this.selectedTest = { workspaceId, testId };
+    this.requestVersion++;
     // If webview panel is already open
     if (this.panel !== null) {
       this.panel.reveal();
-      this.sendCurrentTestResultToWebview(testResult);
+      this.fetchTestResult();
       return;
     }
 
     // Register the test result view
     this.panel = vscode.window.createWebviewPanel(
-      "afv-test-result",
-      "Test Result",
+      "blaster-test-result",
+      "Blaster Test Results",
       vscode.ViewColumn.Two,
       {
         enableScripts: true,
@@ -100,26 +53,8 @@ export default class TestResultView {
       (message: WebviewToExtensionMessage) => {
         switch (message.type) {
           case "webview-ready":
-            this.fetchTestTree();
-            this.fetchCurrentTestResult();
+            this.fetchTestResult();
             break;
-          case "change-test":
-            this.changeCurrentTest(message.payload.testId);
-            break;
-          case "run-test":
-            this.runCurrentTest();
-            break;
-          case "notify":
-            vscode.window.showInformationMessage(message.payload.text);
-            break;
-          case "open-result-detail": {
-            const detail = this.context.testStore.getTxDetail(
-              message.payload.id,
-            );
-            if (detail !== null)
-              this.context.testResultDetail.open(this.context, detail, this.currentTestId!);
-            break;
-          }
         }
       },
       undefined,
@@ -131,10 +66,46 @@ export default class TestResultView {
       this.context.extension.extensionUri,
       "testResult",
     );
+
     this.panel.onDidDispose(
-      () => (this.panel = null),
+      () => {
+        this.panel = null;
+        this.selectedTest = null;
+        this.requestVersion++;
+      },
       null,
       this.context.extension.subscriptions,
     );
+  }
+
+  private fetchTestResult(): void {
+    if (!this.selectedTest || !this.panel) return;
+    const { workspaceId, testId } = this.selectedTest;
+    const version = ++this.requestVersion;
+    this.context.testStore
+      .getTestResult(workspaceId, testId)
+      .then(({ test, result }) => {
+        if (version === this.requestVersion) this.sendTestResultToWebview(test, result);
+      })
+      .catch(error => {
+        if (version !== this.requestVersion) return;
+        this.context.outputChannel.appendLine(`> ERROR: ${String(error)}`);
+        void vscode.window.showErrorMessage(`Unable to load test results: ${String(error)}`);
+      });
+  }
+
+  private onTestTreeUpdate(payload: TestTreeUpdate): void {
+    if (payload.type === 'test') {
+      const test = payload.test;
+      if (this.panel !== null && this.selectedTest?.workspaceId === test.workspaceId && this.selectedTest.testId === test.id) {
+        this.fetchTestResult();
+      }
+    }
+  }
+
+  private sendTestResultToWebview(test: Test, result: TestResult): void {
+    if (this.panel !== null) {
+      this.panel!.webview.postMessage({ type: 'test-result', payload: { test, result } } as ExtensionToWebviewMessage);
+    }
   }
 }

@@ -1,84 +1,70 @@
-# AFV VS Code Extension
+# Blaster VS Code Extension
 
-## Configuration
+Discover Lean properties in workspace folders, run verification, and inspect
+statuses, timings, counterexample steps, and transaction graphs in VS Code.
 
-This extension is designed to be used as a front-end interface to the [Automatic Formal Verification tool](https://github.com/input-output-hk/sc-fvt) developed by the Cardano High Assurance team. To use this extension you will need to first have the Automatic Formal Verification tool installed. Follow the instructions below to set up your environment so you can use the extension
+## Prerequisites
 
-1. Download the Automatic Formal Verification tool and follow the readme in the AFV repo to ensure your installation and development environment are working properly.
-2. Once the Automatic Formal Verification tool is working you can install and activate the VS Code extension from the Visual Studio Marketplace or from the Extensions panel in VS Code.
+- VS Code matching the version in `package.json`.
+- Node.js 22 or newer and npm for development.
+- Elan/Lake available on the PATH inherited by VS Code, plus each Lean project's
+    pinned toolchain, dependencies, and required solver.
+- A matching Blaster RPC API executable in `bin/`.
 
-## Getting Started Locally
+The extension launches `bin/blaster-rpc-api-${platform}-${arch}` (`.exe` on Windows).
+The bundled macOS arm64 binary is built from the companion `blaster-rpc-api`
+project. Other platform binaries are not included or verified by this migration.
+The old `sc-verifier` CLI is not used.
 
-To run this extension locally for development or testing purposes, follow the steps below:
+## Local Development
 
-1. **Ensure AFV Executable Is Globally Available**
-
-The `sc-verifier` CLI tool must be available globally on your system (i.e., accessible from your terminal or command prompt). You can verify this by running:
-
-```bash
-sc-verifier --help
-```
-
-2. **Clone the Repository**
-```bash
-git clone https://github.com/input-output-hk/afv-extension.git
-cd afv-extension
-```
-
-3. **Install Dependencies**
-
-Make sure you have [Node.js](https://nodejs.org/en/) and [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) installed on your system. 
-
-Then install the project dependencies:
-```bash
+```sh
 npm install
+npm test
+npm run compile
 ```
 
-4. **Start the Extension in Debug Mode**
+Compilation builds the extension host into `out/` and React webviews into `build/`.
+Open this extension project in VS Code and launch its Extension Development Host
+with F5. In that window, open a prepared Lean project and select the Blaster view.
 
-Open the extension project in Visual Studio Code. Press `F5` to launch the extension in debugging mode. This will activate your extension in a sandboxed VS Code environment where you can test and interact with it.
+Use **Blaster: Refresh Test Tree** to discover properties. Run individual tests,
+files, folders, workspaces, or **Blaster: Run All Tests**. Opening a test result
+shows its latest state; **Blaster: Clear All Results** clears completed runs.
+Refresh and clear operations are guarded while tests are pending. Expansion state
+is retained during discovery in the current extension session.
 
-5. **Open the Folder Containing `.lean` Files**
+For the companion examples, prepare dependencies with `lake build Blaster` from
+its `example/` directory. The deliberately false theorem is a verification sample,
+so a full example-library build is expected to fail on that theorem.
 
-   In the Extension debug window, open the folder that contains the `.lean` files you want to analyze `<your-project-root>/sc-fvt/DemoRareEvo` (This folder is found in the root directory once you pull down the sc-fvt repo).
+## Result Limitations
 
-6. **Use the Test Explorer to Run Proofs**
+Verification status and elapsed time are real. For confirmed invalid proofs,
+`steps` and `graph` currently contain historical sample data supplied by the RPC
+API, not extracted counterexample evidence. Valid tests and tooling failures do
+not receive sample details. Rerunning a test clears its previous result first.
 
-   Open the **Test Explorer** view in VS Code. From there, you can run proofs using the AFV tool in one of the following ways:
-   
-   - Run proofs on the entire folder.
-   - Run proofs on a specific file.
-   - Run proofs on an individual property within a file.
+The counterexample table displays transaction hashes and data fields, with discarded
+steps hidden by default. The graph uses transaction and UTxO nodes and plain values.
+Real counterexample extraction is deferred to the API implementation.
 
-   The results will be streamed directly into the Test Explorer and displayed next to each test item.
+## Configuration and Protocol
 
-## Folder Structure
+Enable `blaster-extension.trace` for RPC traffic and normal server exit messages
+in the **Blaster** output channel.
 
-- **`AFV-EXTENSION`**: The main application directory.
-    - **`src`**: The `src` folder contains all of the extension-related source code and can be thought of as containing the "backend" code/logic for the entire extension.
-        - **`extension.ts`**: Contains the logic for activating and deactiving the extension live here. This is also the place where extension commands are registered.
-        - **`views`**: Contains all of the webview-related code that will be executed within the extension context. It can be thought of as the place where all of the "backend" code for each webview panel is contained.
-        - **`utils.ts`**: Contains all of the extension utility functions that make setting up and managing an extension easier. 
-    - **`webview-ui`**: Contains all of the React-based webview source code and can be thought of as containing the "frontend" code/logic for the extension webview.
-        - **`components`**
+The extension uses the new `fetch` request, `run` notification, and `testEvent`
+notifications. The old RPC protocol is unsupported. Shared TypeScript types live
+in `shared/types.d.ts`; full wire documentation and native protocol tests live in
+the companion API repository.
 
-## Features
+## Project Layout
 
-The AFV Extension comes with several features that allow you to discover annotated properties you want to prove and inspect the results returned from the solver.
+- `src/`: activation, RPC process lifecycle, data store, and webview controllers.
+- `shared/`: public test/tree/result/message types.
+- `webview-ui/`: React tree and result views.
+- `scripts/regression.test.cjs`: focused state, selection, subscription, and queue tests.
+- `bin/`: platform-specific RPC executables.
 
-## Extension Settings
-
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
-
-## Contributions
-
-TBA
-
-**Enjoy!**
+See `CONTRIBUTING.md` for contribution guidelines.

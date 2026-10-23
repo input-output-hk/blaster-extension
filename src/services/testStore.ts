@@ -1,446 +1,178 @@
-import * as vscode from "vscode";
+import * as vscode from 'vscode';
+import { createHash } from 'node:crypto';
+import { queue } from 'async';
 
-import RpcClient from "./rpcClient";
-import { AfvContext } from "../extension";
+import RpcClient from './rpcClient';
+import Database from './database';
+import { BlasterContext } from '../extension';
 
-const MOCK_COUNTEREXAMPLE_STEPS = [
-  {
-    txHash: "d03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adba",
-    data: { datum: "datum1", redeemer: "redeemer1", variable1: "1111" },
-    discarded: false,
-  },
-  {
-    txHash: "d03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbb",
-    data: { datum: "datum2", redeemer: "redeemer2", variable1: "2222" },
-    discarded: false,
-  },
-  {
-    txHash: "d03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbc",
-    data: { datum: "datum3", redeemer: "redeemer3", variable1: "3333" },
-    discarded: false,
-  },
-  {
-    txHash: "d03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbd",
-    data: { datum: "datum4", redeemer: "redeemer4", variable1: "4444" },
-    discarded: false,
-  },
-  {
-    txHash: "d03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbe",
-    data: {},
-    discarded: true,
-  },
-  {
-    txHash: "d03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbf",
-    data: {},
-    discarded: true,
-  },
-  {
-    txHash: "d03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbg",
-    data: {},
-    discarded: true,
-  },
-  {
-    txHash: "d03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbh",
-    data: {},
-    discarded: true,
-  },
-] as TestCounterexampleStep[];
-
-const MOCK_GRAPH = {
-  txs: [
-    {
-      hash: "d03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbc",
-      block: "2ae4a1b9031aad886938983a712c43e5ae879bc21459eb2df1e8bb665e010375",
-      slot: 181077899,
-      fees: 1682177,
-      size: 714,
-      outputAmount: [
-        { unit: "lovelace", quantity: 510442733 },
-        {
-          unit: "1d9c0b541adc300c19ddc6b9fb63c0bfe32b1508305ba65b8762dc7b5449434b45543734",
-          quantity: 1,
-        },
-      ],
-      totalOutput: 510442733,
-      inputs: [
-        "31596ecbdcf102c8e5c17e75c65cf9780996285879d18903f035964f3a7499a8#0",
-        "26741de9ee337aa24ebeea078832a901c4deacce261e142a23186b1691513863#1",
-      ],
-      outputs: [
-        "d03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbc#0",
-        "d03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbc#1",
-        "d03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbc#2",
-      ],
-    },
-    {
-      hash: "d03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbd",
-      block: "2ae4a1b9031aad886938983a712c43e5ae879bc21459eb2df1e8bb665e010376",
-      slot: 181077900,
-      fees: 1682177,
-      size: 700,
-      outputAmount: [{ unit: "lovelace", quantity: 510442733 }],
-      totalOutput: 510442733,
-      inputs: [
-        "d03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbc#0",
-        "d03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbc#1",
-        "31596ecbdcf102c8e5c17e75c65cf9780996285879d18903f035964f3a7499a9#3",
-      ],
-      outputs: [
-        "d03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbd#0",
-        "d03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbd#1",
-      ],
-    },
-  ],
-  utxos: [
-    {
-      txHash:
-        "31596ecbdcf102c8e5c17e75c65cf9780996285879d18903f035964f3a7499a8",
-      outputIndex: 0,
-      address: "addr1wy8ccvgzslpjf9yhrprvmqulpmjpkpxf8c0hvtjwvw8n6pqdcrnp0",
-      referenceScriptHash:
-        "1d9c0b541adc300c19ddc6b9fb63c0bfe32b1508305ba65b8762dc7b",
-      datum: {
-        constructor: 0,
-        fields: [
-          {
-            constructor: 0,
-            fields: [
-              {
-                bytes:
-                  "636d0d0118a8933ac167d4c448150bb325deaf7a4fdfb44adc7f2f5a",
-              },
-            ],
-          },
-          {
-            constructor: 0,
-            fields: [
-              {
-                constructor: 0,
-                fields: [
-                  {
-                    bytes:
-                      "636d0d0118a8933ac167d4c448150bb325deaf7a4fdfb44adc7f2f5a",
-                  },
-                ],
-              },
-              {
-                constructor: 0,
-                fields: [
-                  {
-                    constructor: 0,
-                    fields: [
-                      {
-                        constructor: 0,
-                        fields: [
-                          {
-                            bytes:
-                              "e39b5f40aa85fbc121a625d777a776eca1cb4c923426949c997d8828",
-                          },
-                        ],
-                      },
-                    ],
-                  },
-                ],
-              },
-            ],
-          },
-          { constructor: 0, fields: [] },
-          {
-            constructor: 0,
-            fields: [
-              {
-                constructor: 0,
-                fields: [
-                  {
-                    bytes:
-                      "636d0d0118a8933ac167d4c448150bb325deaf7a4fdfb44adc7f2f5a",
-                  },
-                ],
-              },
-              {
-                constructor: 0,
-                fields: [
-                  {
-                    constructor: 0,
-                    fields: [
-                      {
-                        constructor: 0,
-                        fields: [
-                          {
-                            bytes:
-                              "e39b5f40aa85fbc121a625d777a776eca1cb4c923426949c997d8828",
-                          },
-                        ],
-                      },
-                    ],
-                  },
-                ],
-              },
-            ],
-          },
-          { constructor: 0, fields: [] },
-          {
-            constructor: 0,
-            fields: [
-              {
-                bytes:
-                  "f5808c2c990d86da54bfc97d89cee6efa20cd8461616359478d96b4c",
-              },
-              {
-                bytes:
-                  "b950921763ce10c2600579460a4a40ba0c286bfab6497acd09ae0cd8b2ef687d",
-              },
-            ],
-          },
-          {
-            constructor: 0,
-            fields: [
-              { constructor: 0, fields: [] },
-              { constructor: 0, fields: [{ int: "193007890" }] },
-              { int: "63970881068" },
-              { constructor: 0, fields: [] },
-            ],
-          },
-          { int: "2000000" },
-          { constructor: 1, fields: [] },
-        ],
-      },
-      // datum: {
-      //   constructor: 0,
-      //   fields: [
-      //     { bytes: '626172' },
-      //     { int: 42 },
-      //     { bytes: '416c696365' },
-      //   ],
-      // },
-      amount: [
-        {
-          unit: "lovelace",
-          quantity: 12507620,
-        },
-      ],
-    },
-    {
-      txHash:
-        "26741de9ee337aa24ebeea078832a901c4deacce261e142a23186b1691513863",
-      outputIndex: 1,
-      address: "addr1wywecz65rtwrqrqemhrtn7mrczl7x2c4pqc9hfjmsa3dc7cr5pvqw",
-      datum: "foobar",
-      amount: [
-        {
-          unit: "lovelace",
-          quantity: 1124910,
-        },
-        {
-          unit: "e1ddde8138579e255482791d9fba0778cb1f5c7b435be7b3e42069de425549444c45524645535432303236",
-          quantity: 1,
-        },
-      ],
-    },
-    {
-      txHash:
-        "d03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbc",
-      outputIndex: 0,
-      address:
-        "addr1qygsresrr4z5zggkwee8kz808ea3mzn7prhgfmralnqxvjvz57923as3zdhkgevjhq24qefkj074en0efej63ejhn2asau4xh2",
-      amount: [
-        {
-          unit: "lovelace",
-          quantity: 12507620,
-        },
-      ],
-    },
-    {
-      txHash:
-        "d03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbc",
-      outputIndex: 1,
-      address:
-        "addr1qygsresrr4z5zggkwee8kz808ea3mzn7prhgfmralnqxvjvz57923as3zdhkgevjhq24qefkj074en0efej63ejhn2asau4xh2",
-      amount: [
-        {
-          unit: "lovelace",
-          quantity: 12507620,
-        },
-      ],
-    },
-    {
-      txHash:
-        "d03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbc",
-      outputIndex: 2,
-      address:
-        "addr1qygsresrr4z5zggkwee8kz808ea3mzn7prhgfmralnqxvjvz57923as3zdhkgevjhq24qefkj074en0efej63ejhn2asau4xh2",
-      amount: [
-        {
-          unit: "lovelace",
-          quantity: 12507620,
-        },
-      ],
-    },
-    {
-      txHash:
-        "31596ecbdcf102c8e5c17e75c65cf9780996285879d18903f035964f3a7499a9",
-      outputIndex: 3,
-      address: "addr1wy8ccvgzslpjf9yhrprvmqulpmjpkpxf8c0hvtjwvw8n6pqdcrnp0",
-      amount: [
-        {
-          unit: "lovelace",
-          quantity: 12507620,
-        },
-      ],
-    },
-    {
-      txHash:
-        "d03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbd",
-      outputIndex: 0,
-      address: "addr1wy8ccvgzslpjf9yhrprvmqulpmjpkpxf8c0hvtjwvw8n6pqdcrnp0",
-      amount: [
-        {
-          unit: "lovelace",
-          quantity: 12507620,
-        },
-      ],
-    },
-    {
-      txHash:
-        "d03abcb194238e97b78fde2ad23965150fdf72b156731759b60f7d493836adbd",
-      outputIndex: 1,
-      address: "addr1wy8ccvgzslpjf9yhrprvmqulpmjpkpxf8c0hvtjwvw8n6pqdcrnp0",
-      amount: [
-        {
-          unit: "lovelace",
-          quantity: 12507620,
-        },
-      ],
-    },
-  ],
-} as TestGraph;
+import type { QueueObject } from 'async';
 
 export default class TestStore {
+  private context: BlasterContext = {} as BlasterContext;
+  private database: Database;
   private rpcClient: RpcClient;
-  private testTree: TestTree[] | null = null;
-  private testResults: Record<string, TestResult> = {};
-  private testUpdateCallbacks: ((result: TestResult) => void)[] = [];
+  private eventQueue: QueueObject<() => Promise<void>>;
+  private subscriptions: Array<vscode.Disposable> = [];
+  private disposePromise: Promise<void> | null = null;
+
+  private workspaces: Map<string, Workspace>;
+  private isTestTreeFetched: boolean = false;
+  private testTreeOpenState: Record<string, boolean> = {};
 
   constructor(context: vscode.ExtensionContext) {
     this.rpcClient = new RpcClient(context);
+    this.database = new Database();
+    this.eventQueue = queue<() => Promise<void>>(async operation => { await operation(); }, 1);
+
+    this.workspaces = new Map(
+      vscode.workspace.workspaceFolders?.map(folder => [
+        this.makeWorkspaceId(folder.uri.fsPath),
+        {
+          id: this.makeWorkspaceId(folder.uri.fsPath),
+          path: folder.uri.fsPath
+        }
+      ]) || []
+    );
   }
 
-  public async initialize(context: AfvContext): Promise<void> {
-    await this.rpcClient.initialize();
+  private makeWorkspaceId(workspacePath: string): string {
+    return createHash('sha256').update(workspacePath).digest('hex').slice(0, 8);
+  }
 
-    this.rpcClient.onTestResult((result: TestResult) => {
-      // TODO: Remove this when implementing counterexample data support
-      result.counterexampleSteps = MOCK_COUNTEREXAMPLE_STEPS;
+  public async initialize(context: BlasterContext): Promise<void> {
+    this.context = context;
 
-      // TODO: Remove this when implementing test graph data support
-      result.graph = MOCK_GRAPH;
+    await this.database.initialize();
+    await this.rpcClient.initialize(context);
 
-      this.testResults[result.test.id] = result;
-      this.notifyTestUpdate(result);
+    this.rpcClient.onTestEvent(event => {
+      void this.eventQueue.pushAsync(() => this.handleTestEvent(event)).catch(error => {
+        context.outputChannel.appendLine(`> ERROR processing test event: ${String(error)}`);
+      });
+    });
+    this.rpcClient.onDisconnect(() => {
+      void this.eventQueue.pushAsync(() => this.database.failPendingTests()).catch(error => {
+        context.outputChannel.appendLine(`> ERROR clearing pending tests: ${String(error)}`);
+      });
     });
   }
 
-  public async buildTestTree(): Promise<TestTree[]> {
-    const testTree = await this.rpcClient.buildTestTree();
-    this.updateTestTree(testTree);
-    return testTree;
-  }
-
-  public getTestTree(): TestTree[] | null {
-    return this.testTree;
-  }
-
-  private updateTestTree(testTree: TestTree[]): void {
-    this.testTree = testTree;
-    for (const test of testTree) {
-      this.updateTestNodes(test.children);
+  private async handleTestEvent(event: TestEvent): Promise<void> {
+    switch (event.type) {
+      case 'test-update':
+        await this.handleTestUpdateEvent(event as TestUpdateEvent);
+        break;
+      case 'test-result':
+        await this.handleTestResultEvent(event as TestResultEvent);
+        break;
+      case 'test-error':
+        await this.handleTestErrorEvent(event as TestErrorEvent);
+        break;
     }
   }
 
-  private updateTestNodes(nodes: TestTreeNode[]): void {
-    for (const node of nodes) {
-      if (node.type === "folder") {
-        this.updateTestNodes((node as TestTreeFolderNode).children);
-      } else if (node.type === "file") {
-        for (const test of (node as TestTreeFileNode).tests) {
-          if (!this.testResults[test.id]) {
-            this.testResults[test.id] = {
-              test,
-              status: "undetermined",
-            };
-          }
+  private async handleTestUpdateEvent(event: TestUpdateEvent): Promise<void> {
+    await this.database.handleTestUpdateEvent(event);
+  }
+
+  private async handleTestResultEvent(event: TestResultEvent): Promise<void> {
+    await this.database.handleTestResultEvent(event);
+  }
+
+  private async handleTestErrorEvent(event: TestErrorEvent): Promise<void> {
+    await this.database.handleTestErrorEvent(event);
+  }
+
+  public async fetchTestTree(): Promise<TestTree> {
+    this.workspaces = new Map(
+      vscode.workspace.workspaceFolders?.map(folder => [
+        this.makeWorkspaceId(folder.uri.fsPath),
+        {
+          id: this.makeWorkspaceId(folder.uri.fsPath),
+          path: folder.uri.fsPath
         }
-      }
-    }
+      ]) || []
+    );
+
+    const { testTree } = await this.rpcClient.fetchTestTree({
+      workspaces: Array.from(this.workspaces.values())
+    });
+
+    let storedTree = testTree;
+    await this.eventQueue.pushAsync(async () => {
+      storedTree = await this.database.storeTestTree(testTree, this.testTreeOpenState);
+    });
+    this.isTestTreeFetched = true;
+    return storedTree;
   }
 
-  public async fetchTestResult(testId: string): Promise<TestResult> {
-    if (this.testResults[testId]) {
-      return this.testResults[testId];
-    }
-    const result = await this.rpcClient.fetchTestResult(testId);
-
-    // TODO: Remove this when implementing counterexample data support
-    result.counterexampleSteps = MOCK_COUNTEREXAMPLE_STEPS;
-
-    // TODO: Remove this when implementing test graph data support
-    result.graph = MOCK_GRAPH;
-
-    this.testResults[testId] = result;
-    return result;
+  public async getTestTree(): Promise<TestTree | undefined> {
+    if (!this.isTestTreeFetched) return;
+    return await this.database.fetchTestTree(this.testTreeOpenState);
   }
 
-  public getTestResults(): Record<string, TestResult> {
-    return this.testResults;
+  public updateOpenTestTreeNode(isOpen: boolean, workspaceId: string, group?: Array<string>): void {
+    const id = [workspaceId];
+    if (group) id.push(...group);
+    this.testTreeOpenState[id.join(':')] = isOpen;
   }
 
-  public onTestUpdate(callback: (result: TestResult) => void): void {
-    this.testUpdateCallbacks.push(callback);
-  }
-
-  private notifyTestUpdate(result: TestResult): void {
-    for (const callback of this.testUpdateCallbacks) {
-      callback(result);
-    }
-  }
-
-  // Resolves input/output UTXOs for a tx hash by searching all cached test graphs.
-  // UTxO refs are stored as "txHash#outputIndex" strings and matched against graph.utxos.
-  // Returns null if no cached graph contains the transaction.
-  public getTxDetail(txHash: string): TestResultDetail | null {
-    const results = Object.values(this.testResults);
-
-    const graph = results
-      .map((r) => r.graph)
-      .find((g) => g?.txs.some((t) => t.hash === txHash));
-    if (!graph) return null;
-
-    const tx = graph.txs.find((t) => t.hash === txHash)!;
-
-    const resolveRef = (ref: string) => {
-      const [hash, idx] = ref.split("#");
-      return graph.utxos.find(
-        (u) => u.txHash === hash && u.outputIndex === Number(idx),
-      );
+  public async runTests(testRuns: Array<TestRun>): Promise<void> {
+    if (!this.isTestTreeFetched) throw new Error('Discover tests before running them.');
+    const params: RpcRunParams = {
+      testRuns: testRuns.map(testRun => {
+        const workspace = this.workspaces.get(testRun.workspaceId);
+        if (!workspace) throw new Error(`Unknown workspace: ${testRun.workspaceId}`);
+        return { workspacePath: workspace.path, testIds: testRun.testIds };
+      })
     };
-
-    return {
-      type: "tx",
-      data: {
-        inputs: tx.inputs.map(resolveRef).filter((u) => u !== undefined),
-        outputs: tx.outputs.map(resolveRef).filter((u) => u !== undefined),
-      },
-    };
+    await this.eventQueue.pushAsync(async () => {
+      await this.database.handleTestRun(testRuns);
+      try {
+        await this.rpcClient.testRun(params);
+      } catch (error) {
+        await this.database.failPendingTests();
+        throw error;
+      }
+    });
   }
 
-  public runTest(testIds: string[]): void {
-    for (const testId of testIds) {
-      if (this.testResults[testId]) {
-        this.testResults[testId]!.status = "running";
-        this.testResults[testId]!.time = 0;
-        this.notifyTestUpdate(this.testResults[testId]!);
-      }
+  public async runAllTests(): Promise<void> {
+    const testRuns = Array.from(this.workspaces.values()).map(v => ({ workspaceId: v.id }));
+    await this.runTests(testRuns);
+  }
+
+  public async clearTestResults(): Promise<void> {
+    await this.eventQueue.pushAsync(() => this.database.clearTestResults());
+  }
+
+  public async getTestResult(workspaceId: string, testId: string): Promise<{ test: Test, result: TestResult }> {
+    const test = await this.database.getTest(workspaceId, testId);
+    const result = await this.database.getTestResult(workspaceId, testId);
+    return { test, result };
+  }
+
+  public onTestTreeUpdate(callback: (payload: TestTreeUpdate) => void): vscode.Disposable {
+    const unsubscribeTests = this.database.onTestUpdate(callback);
+    const unsubscribeTree = this.database.onTestTreeUpdate(this.testTreeOpenState, callback);
+    const subscription = new vscode.Disposable(() => {
+      unsubscribeTests();
+      unsubscribeTree();
+    });
+    this.subscriptions.push(subscription);
+    return subscription;
+  }
+
+  public dispose(): Promise<void> {
+    if (!this.disposePromise) {
+      this.disposePromise = (async () => {
+        for (const subscription of this.subscriptions) subscription.dispose();
+        await this.rpcClient.dispose();
+        if (!this.eventQueue.idle()) await this.eventQueue.drain();
+        await this.database.dispose();
+      })();
     }
-    this.rpcClient.runTest(testIds);
+    return this.disposePromise;
   }
 }

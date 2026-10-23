@@ -1,62 +1,26 @@
-import { useEffect, useState } from 'react';
-import { NotifyProvider } from '../hooks/useNotify';
-import {
-  VscodeTabs,
-  VscodeTabHeader,
-  VscodeTabPanel,
-} from '@vscode-elements/react-elements';
+import { useEffect, useState, useRef } from 'react';
+
+import RunningIndicator from '../../components/RunningIndicator';
+import TestHeader from '../../components/TestHeader';
+import Tabs from './components/Tabs';
+import CounterexampleView from './components/CounterexampleView';
+import TransactionGraphView from './components/TransactionGraphView';
 
 import type { WebviewApi } from 'vscode-webview';
+import type { TransactionGraphViewRef } from './components/TransactionGraphView';
 
-import TestStatusBadge from '../components/TestStatusBadge';
-import TestSelector from '../components/TestSelector';
-import TestCounterexampleTab from './components/TestCounterexampleTab';
-import TestGraphTab from './components/TestGraphTab';
-import TestPropertiesTab from './components/TestPropertiesTab';
-
-function findTestsInNode(nodes: TestTreeNode[], testId: string): Test[] | null {
-  for (const node of nodes) {
-    if (node.type === 'folder') {
-      const result = findTestsInNode((node as TestTreeFolderNode).children, testId);
-      if (result) return result;
-    } else if (node.type === 'file') {
-      const tests = (node as TestTreeFileNode).tests;
-      if (tests.some(t => t.id === testId)) return tests;
-    }
-  }
-  return null;
-}
-
-function getSiblingTests(testTree: TestTree[], testId: string): Test[] {
-  for (const root of testTree) {
-    const result = findTestsInNode(root.children, testId);
-    if (result) return result;
-  }
-  return [];
-}
+const COUNTEREXAMPLE_TAB = 'counterexample';
+const TX_GRAPH_TAB = 'graph';
 
 interface Props {
   vscode: WebviewApi<unknown>;
 }
 
 const TestResultView: React.FC<Props> = ({ vscode }) => {
+  const graphRef = useRef<TransactionGraphViewRef>(null);
+  const [test, setTest] = useState<Test|null>(null);
   const [testResult, setTestResult] = useState<TestResult|null>(null);
-  const [testTree, setTestTree] = useState<TestTree[]>([]);
-
-  const onTestOpenDetail = (txHash: string) => {
-    vscode.postMessage({
-      type: 'open-result-detail',
-      payload: { type: 'tx', id: txHash },
-    } as WebviewToExtensionMessage);
-  };
-
-  const onTestSelected = (testId: string) => {
-    vscode.postMessage({ type: 'change-test', payload: { testId } } as WebviewToExtensionMessage);
-  };
-
-  const onTestRecheck = () => {
-    vscode.postMessage({ type: 'run-test' } as WebviewToExtensionMessage);
-  };
+  const [selectedTab, setSelectedTab] = useState<string>(COUNTEREXAMPLE_TAB);
 
   useEffect(() => {
     vscode.postMessage({ type: 'webview-ready' } as WebviewToExtensionMessage);
@@ -64,10 +28,8 @@ const TestResultView: React.FC<Props> = ({ vscode }) => {
     const messageHandler = (event: MessageEvent) => {
       const message = event.data as ExtensionToWebviewMessage;
       if (message.type === 'test-result') {
-        setTestResult(message.payload);
-      }
-      if (message.type === 'test-tree') {
-        setTestTree(message.payload.testTree);
+        setTest(message.payload.test);
+        setTestResult(message.payload.result);
       }
     };
 
@@ -75,59 +37,61 @@ const TestResultView: React.FC<Props> = ({ vscode }) => {
     return () => window.removeEventListener('message', messageHandler);
   }, [vscode]);
 
-  if (!testResult) return <></>;
+  if (!test) return <></>;
+  
+  const hasResult = !!(testResult?.steps?.length || testResult?.graph?.length);
 
   return (
-    <NotifyProvider vscode={vscode}>
-    <div className="flex flex-col h-full overflow-hidden bg-base-20 p-4">
-      <div className="flex items-center py-1 gap-2 shrink-0 border-b border-(--vscode-panel-border) min-h-8">
-
-        <TestSelector
-          tests={getSiblingTests(testTree, testResult.test.id)}
-          selectedTestId={testResult.test.id}
-          onTestSelected={onTestSelected}
-        />
-
-        <TestStatusBadge status={testResult.status} />
-
-        <div className="flex-1" />
-
-        <button
-          className="flex items-center gap-1.5 bg-base-15 text-base-06 rounded pl-2 pr-2.75 py-1.5 text-[13px] shrink-0 cursor-pointer active:bg-blue-07 active:text-base-01"
-          onClick={onTestRecheck}
-        >
-          <i className="codicon codicon-refresh" />
-          Recheck
-        </button>
-
-        <button className="flex items-center gap-1.5 bg-base-15 text-base-06 rounded pl-2 pr-2.75 py-1.5 text-[13px] shrink-0 cursor-pointer active:bg-blue-07 active:text-base-01">
-          <i className="codicon codicon-cloud-download" />
-          Download
-        </button>
-
+    <div className="flex flex-col h-full bg-transparent">
+      <div className="flex-none pt-4 px-4">
+        <TestHeader test={test} />
       </div>
 
-      <VscodeTabs
-        className="flex-1 flex flex-col overflow-hidden min-h-0 mb-4"
-      >
-        <VscodeTabHeader slot="header">Counterexample Trace</VscodeTabHeader>
-        <VscodeTabHeader slot="header">Transaction Graph</VscodeTabHeader>
-        <VscodeTabHeader slot="header">Run Property Info</VscodeTabHeader>
+      { test.isRunning &&
+        <RunningIndicator />
+      }
 
-        <VscodeTabPanel className="flex flex-col flex-1 overflow-hidden p-0">
-          <TestCounterexampleTab testResult={testResult} onOpenDetail={onTestOpenDetail} />
-        </VscodeTabPanel>
+      { !test.isRunning && !hasResult &&
+        <div className="flex-1 flex flex-col items-center justify-center gap-2">
+          <span className="text-md">This test does not have any results</span>
+        </div>
+      }
 
-        <VscodeTabPanel className="flex flex-col flex-1 overflow-hidden p-0">
-          <TestGraphTab testResult={testResult} onOpenDetail={onTestOpenDetail} />
-        </VscodeTabPanel>
-
-        <VscodeTabPanel className="flex flex-col flex-1 overflow-hidden p-0">
-          <TestPropertiesTab testResult={testResult} />
-        </VscodeTabPanel>
-      </VscodeTabs>
+      { testResult !== null && hasResult &&
+        <Tabs
+          className="flex-1 min-h-0 flex flex-col p-4"
+          panelClassName="flex-1 min-h-0 pt-4"
+          selectedId={selectedTab}
+          onSelect={setSelectedTab}
+          tabs={[
+            {
+              id: COUNTEREXAMPLE_TAB,
+              label: 'Counterexamples Table',
+              panel: (
+                <CounterexampleView
+                  key={`${test.workspaceId}:${test.id}`}
+                  test={test}
+                  testResult={testResult}
+                  isActive={selectedTab === COUNTEREXAMPLE_TAB}
+                />
+              ),
+            },
+            {
+              id: TX_GRAPH_TAB,
+              label: 'Transaction Graph',
+              panel: (
+                <TransactionGraphView
+                  ref={graphRef}
+                  test={test}
+                  testResult={testResult}
+                  isActive={selectedTab === TX_GRAPH_TAB}
+                />
+              ),
+            },
+          ]}
+        />
+      }
     </div>
-    </NotifyProvider>
   );
 };
 

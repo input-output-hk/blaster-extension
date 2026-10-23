@@ -1,71 +1,69 @@
 import * as vscode from 'vscode';
-import { getWebviewHtml } from '../utils/webview';
+import { GenericWebviewViewProvider } from '../utils/webview';
 
-import type { AfvContext } from '../extension';
-
-class TestTreeViewProvider implements vscode.WebviewViewProvider {
-  private extensionUri: vscode.Uri;
-  private onResolve: (webview: vscode.Webview) => void;
-
-  constructor(extensionUri: vscode.Uri, onResolve: (webview: vscode.Webview) => void) {
-    this.extensionUri = extensionUri;
-    this.onResolve = onResolve;
-  }
-
-  public resolveWebviewView(
-    webviewView: vscode.WebviewView,
-    context: vscode.WebviewViewResolveContext,
-    token: vscode.CancellationToken
-  ) {
-    webviewView.webview.options = {
-      enableScripts: true,
-      localResourceRoots: [this.extensionUri],
-    };
-
-    webviewView.webview.html = getWebviewHtml(webviewView.webview, this.extensionUri, 'testTree');
-
-    this.onResolve(webviewView.webview);
-  }
-}
+import type { BlasterContext } from '../extension';
 
 export default class TestTreeView {
-  private context: AfvContext;
+  private context: BlasterContext;
   private webview: vscode.Webview | null = null;
 
   constructor() {
-    this.context = {} as AfvContext;
+    this.context = {} as BlasterContext;
   }
 
-  public activate(context: AfvContext) {
+  public activate(context: BlasterContext) {
     this.context = context;
-    const provider = new TestTreeViewProvider(context.extension.extensionUri, this.onWebviewResolved.bind(this));
-    const disposable = vscode.window.registerWebviewViewProvider('afv-test-tree', provider);
+    context.extension.subscriptions.push(
+      context.testStore.onTestTreeUpdate(this.onTestTreeUpdate.bind(this))
+    );
+    const provider = new GenericWebviewViewProvider(context.extension.extensionUri, 'testTree', this.onWebviewResolved.bind(this));
+    const disposable = vscode.window.registerWebviewViewProvider('blaster-test-tree', provider);
     context.extension.subscriptions.push(disposable);
+
+    const refreshTestTreeCommand = vscode.commands.registerCommand('blaster-extension.refreshTestTree', this.refreshTestTree.bind(this));
+    context.extension.subscriptions.push(refreshTestTreeCommand);
+
+    const runAllTestsCommand = vscode.commands.registerCommand('blaster-extension.runAllTests', this.runAllTests.bind(this));
+    context.extension.subscriptions.push(runAllTestsCommand);
+
+    const clearAllTestsCommand = vscode.commands.registerCommand('blaster-extension.clearAllTests', this.clearAllTests.bind(this));
+    context.extension.subscriptions.push(clearAllTestsCommand);
   }
 
-  private onWebviewResolved(webview: vscode.Webview): void {
-    this.webview = webview;
+  public refreshTestTree(): void {
+    if (this.webview) {
+      this.fetchTestTree();
+    }
+  }
 
-    this.context.testStore.onTestUpdate((result: TestResult) => {
-      if (this.webview !== null) {
-        this.webview.postMessage({ type: 'test-result', payload: result });
-      }
-    });
-    
+  private onWebviewResolved(webview: vscode.Webview, view: vscode.WebviewView): void {
+    this.webview = webview;
+    view.onDidDispose(() => {
+      if (this.webview === webview) this.webview = null;
+    }, undefined, this.context.extension.subscriptions);
+
     this.webview.onDidReceiveMessage(
       (message: WebviewToExtensionMessage) => {
         switch (message.type) {
           case 'webview-ready':
+            this.getTestTree();
+            break;
+          case 'test-tree-fetch':
             this.fetchTestTree();
             break;
-          case 'scan-workspace':
-            this.buildTestTree();
+          case 'test-tree-run':
+            this.runTests(message.payload);
             break;
-          case 'run-test':
-            this.runTests(message.payload!.testIds);
+          case 'test-tree-open-result':
+            this.openTestResult(message.payload);
             break;
-          case 'open-result':
-            this.openResult(message.payload!.testId);
+          case 'test-tree-update-open-state': {
+            const { isOpen, workspaceId, group } = message.payload;
+            this.context.testStore.updateOpenTestTreeNode(isOpen, workspaceId, group);
+            break;
+          }
+          case 'test-tree-open-folder':
+            void vscode.commands.executeCommand('vscode.openFolder').then(undefined, error => this.reportError(error));
             break;
         }
       },
@@ -74,34 +72,56 @@ export default class TestTreeView {
     );
   }
 
-  private openResult(testId: string): void {
-    this.context.testStore.fetchTestResult(testId).then((result) =>
-      this.context.testResultView.open(result)
-    );
+  private getTestTree(): void {
+    this.context.testStore.getTestTree().then((testTree?: TestTree) => {
+      if (testTree !== undefined) {
+        this.sendTestTreeToWebview(testTree);
+      }
+    }).catch(error => this.reportError(error, true));
   }
 
   private fetchTestTree(): void {
-    const testTree = this.context.testStore.getTestTree();
-    const testResults = this.context.testStore.getTestResults();
-    if (testTree !== null) {
-      this.sendTestTreeToWebview(testTree, testResults);
+    this.context.testStore.fetchTestTree().then((testTree: TestTree) => {
+      this.sendTestTreeToWebview(testTree);
+    }).catch(error => this.reportError(error, true));
+  }
+
+  private runTests(payload: TestRunPayload): void {
+    this.context.testStore.runTests(payload.testRuns).catch(error => this.reportError(error));
+  }
+
+  private runAllTests(): void {
+    this.context.testStore.runAllTests().catch(error => this.reportError(error));
+  }
+
+  private clearAllTests(): void {
+    this.context.testStore.clearTestResults().then(() => {
+      this.getTestTree();
+    }).catch(error => this.reportError(error));
+  }
+
+  private reportError(error: unknown, treeError = false): void {
+    const message = error instanceof Error ? error.message : String(error);
+    this.context.outputChannel.appendLine(`> ERROR: ${message}`);
+    void vscode.window.showErrorMessage(message);
+    if (treeError) {
+      void this.webview?.postMessage({ type: 'test-tree-error', payload: { message } } satisfies ExtensionToWebviewMessage);
     }
   }
 
-  private buildTestTree(): void {
-    this.context.testStore.buildTestTree().then((testTree: TestTree[]) => {
-      const testResults = this.context.testStore.getTestResults();
-      this.sendTestTreeToWebview(testTree, testResults);
-    });
+  private openTestResult(payload: OpenResultPayload): void {
+    this.context.testResultView.open(payload.workspaceId, payload.testId);
   }
 
-  private sendTestTreeToWebview(testTree: TestTree[], testResults: Record<string, TestResult>): void {
+  private sendTestTreeToWebview(testTree: TestTree): void {
     if (this.webview !== null) {
-      this.webview.postMessage({ type: 'test-tree', payload: { testTree, testResults } } as ExtensionToWebviewMessage);
+      this.webview.postMessage({ type: 'test-tree', payload: { testTree } } as ExtensionToWebviewMessage);
     }
   }
 
-  private runTests(testIds: string[]): void {
-    this.context.testStore.runTest(testIds);
+  private onTestTreeUpdate(payload: TestTreeUpdate): void {
+    if (this.webview !== null) {
+      this.webview.postMessage({ type: 'test-tree-update', payload } as ExtensionToWebviewMessage);
+    }
   }
 }

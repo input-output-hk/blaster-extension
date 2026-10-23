@@ -2,102 +2,144 @@ import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import * as rpc from 'vscode-jsonrpc/node';
 
+import { BlasterContext } from '../extension';
 import { getBinaryPath } from '../utils/binary';
-
-type TestTreeParams = {
-	testTreePaths: string[];
-}
-
-type RunTestParams = {
-	testIds: string[];
-}
-
-type FetchTestResultParams = {
-	testId: string;
-}
   
 export default class RpcClient {
-  private childProcess: cp.ChildProcess;
-  private connection: rpc.MessageConnection;
+  private context: BlasterContext | null = null;
+  private childProcess!: cp.ChildProcess;
+  private connection!: rpc.MessageConnection;
+  private disposed = false;
+  private disconnectHandler: (() => void) | undefined;
 
-  constructor(context: vscode.ExtensionContext) {
-    this.childProcess = cp.spawn(context.asAbsolutePath(getBinaryPath()));
+  constructor(private readonly extension: vscode.ExtensionContext) {}
 
-    this.childProcess.stdout?.on('data', (data) => {
-      console.log(`\nRPC STDOUT>\n${data}`);
-      return data;
-    });
+  public async initialize(context: BlasterContext): Promise<void> {
+    this.context = context;
+
+    this.childProcess = cp.spawn(this.extension.asAbsolutePath(getBinaryPath()));
     
+    this.childProcess.on('error', (error) => {
+      context.outputChannel.appendLine(`> ERROR: RPC server failed to start: ${error.message}`);
+      vscode.window.showErrorMessage(
+        `Blaster RPC server failed to start: ${error.message}`,
+        'Show output'
+      )
+      .then(selection => {
+        if (selection === 'Show output') {
+          this.context!.outputChannel.show(true);
+        }
+      });
+    });
+
+    this.childProcess.on('exit', (code, signal) => {
+      if (!this.disposed || vscode.workspace.getConfiguration('blaster-extension').get<boolean>('trace', false)) {
+        context.outputChannel.appendLine(`> RPC server exited (code: ${code}, signal: ${signal})`);
+      }
+      if (!this.disposed && code !== 0) {
+        vscode.window.showErrorMessage(
+          'Blaster RPC server exited unexpectedly',
+          'Show output'
+        )
+        .then(selection => {
+          if (selection === 'Show output') {
+            this.context!.outputChannel.show(true);
+          }
+        });
+      }
+    });
+
     this.childProcess.stderr?.on('data', (data) => {
-      console.log(`\nRPC STDERR>\n${data}`);
+      context.outputChannel.append(`> ERROR\n${data}`);
       return data;
     });
-    
+
     this.connection = rpc.createMessageConnection(
       new rpc.StreamMessageReader(this.childProcess.stdout!),
       new rpc.StreamMessageWriter(this.childProcess.stdin!)
     );
 
-    this.connection.listen();
-
     this.connection.trace(rpc.Trace.Verbose, {
       log: (message: string, data?: string) => {
-        console.log(`\nRPC TRACE>\n${message}\n${data}`);
+        if (vscode.workspace.getConfiguration('blaster-extension').get<boolean>('trace', false)) {
+          context.outputChannel.append(`> ${message}\n${data}`);
+        }
       }
     });
-  }
 
-  public async initialize(): Promise<void> {
-    // TODO: Implement handling of workspace changes
-    // context.extension.subscriptions.push(
-    //   vscode.workspace.onDidChangeWorkspaceFolders(async () => {
-    //     await this.updateWorkspace(vscode.workspace.workspaceFolders || []);
-    //   })
-    // );
-
-    return await new Promise<void>((resolve) =>
-      this.connection.onNotification('serverReady', resolve)
-    );
-  }
-
-  public onTestResult(callback: (result: TestResult) => void): void {
-    this.connection.onNotification('testResult', (result: TestResult) => {
-      callback(result);
+    this.connection.onClose(() => {
+      if (!this.disposed) this.disconnectHandler?.();
+    });
+    this.connection.listen();
+    await new Promise<void>((resolve, reject) => {
+      this.childProcess.once('error', reject);
+      this.childProcess.once('spawn', () => {
+        this.childProcess.removeListener('error', reject);
+        resolve();
+      });
     });
   }
 
-  // TODO: Implement handling of workspace changes
-  // public onWorkspaceUpdate(callback: (workspaces: Workspace[]) => void): void {
-  //   this.connection.onNotification('workspaceUpdated', (workspaces: Workspace[]) => {
-  //     callback(workspaces);
-  //   });
-  // }
-
-  public async buildTestTree(): Promise<TestTree[]> {
-    const request = new rpc.RequestType<TestTreeParams, TestTree[], void>('buildTestTree');
-    const testTreePaths = vscode.workspace.workspaceFolders?.map(folder => folder.uri.fsPath) || [];
-    return await this.connection.sendRequest(request, { testTreePaths });
-  }
-	
-  // TODO: Implement handling of workspace changes
-  // private async updateWorkspace(workspaces: readonly vscode.WorkspaceFolder[]): Promise<void> {
-  //   const notification = new rpc.NotificationType<WorkspaceParams>('updateWorkspace');
-  //   const testTreePaths = workspaces?.map(folder => folder.uri.fsPath) || [];
-  //   return this.connection.sendNotification(notification, { testTreePaths });
-  // }
-	
-  // public async fetchTestTree(): Promise<TestTree[]> {
-  //   const request = new rpc.RequestType<void, TestTree[], void>('getTestTree');
-  //   return await this.connection.sendRequest(request, null);
-  // }
-
-  public runTest(testIds: string[]): void {
-    const notification = new rpc.NotificationType<RunTestParams>('runTest');
-    this.connection.sendNotification(notification, { testIds });
+  public async fetchTestTree(params: RpcFetchParams): Promise<RpcFetchResponse> {
+    const request = new rpc.RequestType<RpcFetchParams, RpcFetchResponse, void>('fetch');
+    return await this.connection.sendRequest(request, params);
   }
 
-  public async fetchTestResult(testId: string): Promise<TestResult> {
-    const request = new rpc.RequestType<FetchTestResultParams, TestResult, void>('getTestResult');
-    return await this.connection.sendRequest(request, { testId });
+  public async testRun(params: RpcRunParams): Promise<void> {
+    const notification = new rpc.NotificationType<RpcRunParams>('run');
+    await this.connection.sendNotification(notification, params);
+    this.clearError();
+  }
+
+  public onTestEvent(callback: (event: TestEvent) => void): void {
+    this.connection.onNotification('testEvent', (event: TestEvent) => {
+      if (event.type === 'test-error') {
+        this.showError(event as TestErrorEvent);
+      }
+      callback(event);
+    });
+  }
+
+  public onDisconnect(callback: () => void): void {
+    this.disconnectHandler = callback;
+  }
+
+  public async dispose(): Promise<void> {
+    if (this.disposed) return;
+    this.disposed = true;
+    const child = this.childProcess;
+    if (child?.pid && child.exitCode === null && child.signalCode === null) {
+      await new Promise<void>(resolve => {
+        const timeout = setTimeout(() => child.kill('SIGKILL'), 2000);
+        child.once('exit', () => {
+          clearTimeout(timeout);
+          resolve();
+        });
+        void this.connection.sendNotification('exit').catch(() => child.kill());
+      });
+    }
+    this.connection?.dispose();
+  }
+
+  private showError(event: TestErrorEvent): void {
+    const { message, trace } = event.payload.error;
+
+    this.context!.outputChannel.appendLine(`> ERROR: ${message}\n${trace}\n`);
+
+    this.context!.statusBarItem.text = `$(error) ${message}`;
+    this.context!.statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
+    this.context!.statusBarItem.show();
+
+    vscode.window
+      .showErrorMessage(message, 'Show output')
+      .then(selection => {
+        if (selection === 'Show output') {
+          this.context!.outputChannel.show(true);
+        }
+      });
+  }
+
+  private clearError(): void {
+    this.context!.statusBarItem.hide();
   }
 }

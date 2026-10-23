@@ -1,13 +1,16 @@
 {
-  "name": "afv-extension",
+  "name": "blaster-extension",
   "publisher": "cardano-ha",
   "displayName": "Blaster",
-  "description": "Perform automated formal verification on Cardano smart contracts written in Aiken, Plinth, and UPLC in Visual Studio Code.",
+  "description": "Discover and verify Lean properties with Blaster in Visual Studio Code.",
   "icon": "images/blaster-logo.png",
   "version": "0.0.1",
   "engines": {
-    "vscode": "^1.101.0"
+    "vscode": "^1.118.0"
   },
+  "workspaces": [
+    "webview-ui"
+  ],
   "categories": [
     "Debuggers",
     "Testing",
@@ -21,7 +24,7 @@
   "contributes": {
     "walkthroughs": [
       {
-        "id": "afv.welcome",
+        "id": "blaster-extension.welcome",
         "title": "Build with Blaster",
         "description": "Enhance your ability to write high assurance smart contract code.",
         "icon": "images/blaster-logo.png",
@@ -30,7 +33,9 @@
             "id": "getStarted",
             "title": "Get Started",
             "description": "View the documentation and minimal examples to get up and running.",
-            "completionEvents": ["onContext:true"],
+            "completionEvents": [
+              "onContext:true"
+            ],
             "media": {
               "markdown": "content/walkthrough/step1-get-started.md"
             }
@@ -38,8 +43,10 @@
           {
             "id": "defineProperty",
             "title": "Define Your First Property",
-            "description": "Learn how to annotate your Plinth code with formal properties.",
-            "completionEvents": ["onContext:true"],
+            "description": "Define Lean properties and verify them with Blaster.",
+            "completionEvents": [
+              "onContext:true"
+            ],
             "media": {
               "markdown": "content/walkthrough/step2-define-property.md"
             }
@@ -48,7 +55,9 @@
             "id": "support",
             "title": "Support and Troubleshooting",
             "description": "Find help, report issues, and browse common solutions.",
-            "completionEvents": ["onContext:true"],
+            "completionEvents": [
+              "onContext:true"
+            ],
             "media": {
               "markdown": "content/walkthrough/step3-support.md"
             }
@@ -56,8 +65,10 @@
           {
             "id": "contribute",
             "title": "Contribute to the Project",
-            "description": "Join the community and help improve Blaster.",
-            "completionEvents": ["onContext:true"],
+            "description": "Join the community and help improve blaster-extension.",
+            "completionEvents": [
+              "onContext:true"
+            ],
             "media": {
               "markdown": "content/walkthrough/step4-contribute.md"
             }
@@ -65,19 +76,65 @@
         ]
       }
     ],
+    "commands": [
+      {
+        "command": "blaster-extension.refreshTestTree",
+        "title": "Blaster: Refresh Test Tree",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "blaster-extension.runAllTests",
+        "title": "Blaster: Run All Tests",
+        "icon": "$(run-all)"
+      },
+      {
+        "command": "blaster-extension.clearAllTests",
+        "title": "Blaster: Clear All Results"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "blaster-extension.refreshTestTree",
+          "when": "view == blaster-test-tree",
+          "group": "navigation@1"
+        },
+        {
+          "command": "blaster-extension.runAllTests",
+          "when": "view == blaster-test-tree",
+          "group": "navigation@2"
+        },
+        {
+          "command": "blaster-extension.clearAllTests",
+          "when": "view == blaster-test-tree",
+          "group": "overflow@1"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Blaster Configuration",
+      "type": "object",
+      "properties": {
+        "blaster-extension.trace": {
+          "type": "boolean",
+          "default": false,
+          "description": "Include RPC trace messages and normal server exits in the Blaster output."
+        }
+      }
+    },
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "afv-test-tree",
+          "id": "blaster-test-tree",
           "title": "Blaster",
           "icon": "images/blaster-icon.svg"
         }
       ]
     },
     "views": {
-      "afv-test-tree": [
+      "blaster-test-tree": [
         {
-          "id": "afv-test-tree",
+          "id": "blaster-test-tree",
           "name": "Blaster",
           "type": "webview",
           "icon": "images/blaster-icon.svg"
@@ -87,19 +144,20 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "npm install && tsc -p ./ && cd webview-ui && npm install && npm run build"
+    "compile": "npm run compile:extension && npm run compile:webview",
+    "compile:extension": "tsc -p ./",
+    "compile:webview": "npm run build -w webview-ui"
   },
   "devDependencies": {
-    "@types/node": "20.x",
-    "@types/vscode": "^1.101.0",
-    "@typescript-eslint/eslint-plugin": "^8.31.1",
-    "@typescript-eslint/parser": "^8.31.1",
-    "eslint": "^9.25.1",
-    "typescript": "^5.8.3"
+    "@types/async": "^3.2.26",
+    "@types/node": "^22.19.19",
+    "@types/vscode": "^1.118.0",
+    "typescript": "^5.9.3"
   },
   "dependencies": {
     "@vscode/codicons": "^0.0.45",
-    "all": "^0.0.0",
+    "async": "^3.2.6",
+    "rxdb": "^17.4.0",
     "vscode-jsonrpc": "^8.2.1"
   }
 }

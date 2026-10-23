@@ -1,7 +1,8 @@
+.gitignore
 .vscode/**
 src/**
 webview-ui/**
-.gitignore
+node_modules/blaster-webview-ui
 **/tsconfig.json
 **/*.map
 **/*.ts
