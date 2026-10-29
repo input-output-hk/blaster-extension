@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import WelcomeView from './components/WelcomeView';
+import LoadingView from './components/LoadingView';
 import EmptyView from './components/EmptyView';
 import ErrorView from './components/ErrorView';
 import TreeView from './components/TreeView';
@@ -18,7 +18,7 @@ interface Props {
 }
 
 const TestTreeView: React.FC<Props> = ({ vscode }) => {
-  const [activeView, setActiveView] = useState<'welcome' | 'empty-tree' | 'tree' | 'error'>('welcome');
+  const [activeView, setActiveView] = useState<'loading' | 'empty-tree' | 'tree' | 'error'>('loading');
   const [testTree, setTestTree] = useState<TestTree | null>(null);
   const [error, setError] = useState<string | undefined>();
 
@@ -56,6 +56,7 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
   }, [vscode]);
 
   const onFetchTestTree = () => {
+    setActiveView('loading');
     vscode.postMessage({ type: 'test-tree-fetch' } as WebviewToExtensionMessage)
   };
 
@@ -94,11 +95,7 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
 
   return (
     <>
-      {activeView === 'welcome' &&
-        <WelcomeView
-          onFetchTestTree={onFetchTestTree}
-        />
-      }
+      {activeView === 'loading' && <LoadingView />}
       {activeView === 'error' &&
         <ErrorView
           message={error}

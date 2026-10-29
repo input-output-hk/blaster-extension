@@ -6,6 +6,7 @@ import type { BlasterContext } from '../extension';
 export default class TestTreeView {
   private context: BlasterContext;
   private webview: vscode.Webview | null = null;
+  private pendingFetch: Promise<void> | null = null;
 
   constructor() {
     this.context = {} as BlasterContext;
@@ -46,7 +47,7 @@ export default class TestTreeView {
       (message: WebviewToExtensionMessage) => {
         switch (message.type) {
           case 'webview-ready':
-            this.getTestTree();
+            this.loadTestTree();
             break;
           case 'test-tree-fetch':
             this.fetchTestTree();
@@ -80,10 +81,25 @@ export default class TestTreeView {
     }).catch(error => this.reportError(error, true));
   }
 
-  private fetchTestTree(): void {
-    this.context.testStore.fetchTestTree().then((testTree: TestTree) => {
-      this.sendTestTreeToWebview(testTree);
+  private loadTestTree(): void {
+    this.context.testStore.getTestTree().then((testTree?: TestTree) => {
+      if (testTree !== undefined) {
+        this.sendTestTreeToWebview(testTree);
+      } else {
+        this.fetchTestTree();
+      }
     }).catch(error => this.reportError(error, true));
+  }
+
+  private fetchTestTree(): void {
+    if (this.pendingFetch) {
+      return
+    };
+    this.pendingFetch = this.context.testStore.fetchTestTree().then((testTree: TestTree) => {
+      this.sendTestTreeToWebview(testTree);
+    }).catch(error => this.reportError(error, true)).finally(() => {
+      this.pendingFetch = null;
+    });
   }
 
   private runTests(payload: TestRunPayload): void {
