@@ -28,6 +28,9 @@ export default class TestTreeView {
 
     const clearAllTestsCommand = vscode.commands.registerCommand('blaster-extension.clearAllTests', this.clearAllTests.bind(this));
     context.extension.subscriptions.push(clearAllTestsCommand);
+
+    const collapseAllTestsCommand = vscode.commands.registerCommand('blaster-extension.collapseAllTests', this.collapseAllTests.bind(this));
+    context.extension.subscriptions.push(collapseAllTestsCommand);
   }
 
   public refreshTestTree(): void {
@@ -92,6 +95,11 @@ export default class TestTreeView {
 
   private runAllTests(): void {
     this.context.testStore.runAllTests().catch(error => this.reportError(error));
+  }
+
+  private collapseAllTests(): void {
+    this.context.testStore.collapseTestTree();
+    this.getTestTree();
   }
 
   private clearAllTests(): void {

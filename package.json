@@ -90,6 +90,10 @@
       {
         "command": "blaster-extension.clearAllTests",
         "title": "Blaster: Clear All Results"
+      },
+      {
+        "command": "blaster-extension.collapseAllTests",
+        "title": "Blaster: Collapse All Properties"
       }
     ],
     "menus": {
@@ -108,6 +112,11 @@
           "command": "blaster-extension.clearAllTests",
           "when": "view == blaster-test-tree",
           "group": "overflow@1"
+        },
+        {
+          "command": "blaster-extension.collapseAllTests",
+          "when": "view == blaster-test-tree",
+          "group": "overflow@2"
         }
       ]
     },

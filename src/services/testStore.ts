@@ -118,6 +118,12 @@ export default class TestStore {
     this.testTreeOpenState[id.join(':')] = isOpen;
   }
 
+  public collapseTestTree(): void {
+    for (const key of Object.keys(this.testTreeOpenState)) {
+      this.testTreeOpenState[key] = false;
+    }
+  }
+
   public async runTests(testRuns: Array<TestRun>): Promise<void> {
     if (!this.isTestTreeFetched) throw new Error('Discover tests before running them.');
     const params: RpcRunParams = {
