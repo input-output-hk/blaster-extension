@@ -5,16 +5,20 @@ import { formatRunTime } from '../../../../utils/format';
 
 interface TreeViewTestProps {
   test: Test;
+  isBusy: boolean;
+  onShowTestLocation: (workspaceId: string, testId: string) => void;
   onRunTest: (testRuns: Array<TestRun>) => void;
   onOpenTestResult: (workspaceId: string, testId: string) => void;
 }
 
 const TreeViewTest: React.FC<TreeViewTestProps> = ({
   test,
+  isBusy,
+  onShowTestLocation,
   onRunTest,
   onOpenTestResult
 }) => {
-  const isRunnable = !test.isRunning && !test.isWaiting;
+  const isRunnable = !isBusy && !test.isRunning && !test.isWaiting;
   const hasResult = test.status === 'invalid';
 
   const handleOpenTestResult = (event: React.MouseEvent<HTMLButtonElement>): void => {
@@ -43,6 +47,7 @@ const TreeViewTest: React.FC<TreeViewTestProps> = ({
           className="flex-1 min-w-0 overflow-hidden whitespace-nowrap text-ellipsis"
           data-tooltip-id="tree-node-name"
           data-node-name={test.name}
+          title={test.name}
         >
           {test.name}
           {test.time !== undefined && test.time > 0 &&
@@ -52,11 +57,28 @@ const TreeViewTest: React.FC<TreeViewTestProps> = ({
           }
         </span>
 
+        <button
+          type="button"
+          className="flex h-5 w-5 shrink-0 items-center justify-center border-0 bg-transparent p-0 opacity-60 hover:opacity-100 cursor-pointer"
+          aria-label="Go to Source"
+          title="Go to Source"
+          onClickCapture={event => {
+            event.preventDefault();
+            event.stopPropagation();
+            event.nativeEvent.stopImmediatePropagation();
+            onShowTestLocation(test.workspaceId, test.id);
+          }}
+        >
+          <i aria-hidden="true" className="codicon codicon-go-to-file" />
+        </button>
+
         {hasResult &&
           <button
             type="button"
             className="flex h-5 w-5 shrink-0 items-center justify-center border-0 bg-transparent p-0 opacity-60 hover:opacity-100 cursor-pointer"
             onClickCapture={handleOpenTestResult}
+            aria-label="View Results"
+            title="View Results"
             data-tooltip-id="tree-node-action"
             data-tooltip-content="View Results"
           >
@@ -70,9 +92,11 @@ const TreeViewTest: React.FC<TreeViewTestProps> = ({
             isRunnable ? 'opacity-60 hover:opacity-100 cursor-pointer' : 'opacity-30 cursor-not-allowed'
           }`}
           disabled={!isRunnable}
+          aria-label="Run File"
+          title="Run File"
           onClickCapture={handleRunTest}
           data-tooltip-id="tree-node-action"
-          data-tooltip-content="Run Test"
+          data-tooltip-content="Run File"
         >
           <i className="codicon codicon-play" />
         </button>

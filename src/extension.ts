@@ -4,7 +4,6 @@ import * as vscode from 'vscode';
 import TestStore from './services/testStore';
 import TestTreeView from './modules/testTreeView';
 import TestResultView from './modules/testResultView';
-import { getBinaryPath } from './utils/binary';
 
 export type BlasterContext = {
   extension: vscode.ExtensionContext;
@@ -20,15 +19,8 @@ let activeStore: TestStore | undefined;
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export async function activate(context: vscode.ExtensionContext) {
-  try {
-    await vscode.workspace.fs.stat(vscode.Uri.file(context.asAbsolutePath(getBinaryPath())));
-  } catch {
-    vscode.window.showErrorMessage(`Blaster RPC server binary not found for ${process.platform}-${process.arch}.`);
-    return;
-  }
-
   // Init store
-  const testStore = new TestStore(context);
+  const testStore = new TestStore();
 
   // Init test tree view
   const testTreeView = new TestTreeView();

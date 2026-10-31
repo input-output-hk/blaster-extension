@@ -21,6 +21,13 @@
     "onStartupFinished"
   ],
   "main": "./out/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "Blaster loads and checks executable Lean project code."
+    },
+    "virtualWorkspaces": false
+  },
   "contributes": {
     "walkthroughs": [
       {
@@ -80,32 +87,46 @@
       {
         "command": "blaster-extension.refreshTestTree",
         "title": "Blaster: Refresh Test Tree",
+        "enablement": "!blaster.busy",
         "icon": "$(refresh)"
       },
       {
         "command": "blaster-extension.runAllTests",
         "title": "Blaster: Run All Tests",
+        "enablement": "!blaster.busy",
         "icon": "$(run-all)"
       },
       {
-        "command": "blaster-extension.clearAllTests",
-        "title": "Clear All Results"
+        "command": "blaster-extension.stopTests",
+        "title": "Blaster: Stop Tests",
+        "icon": "$(stop-circle)",
+        "enablement": "blaster.activeTestRun && !blaster.stoppingTests"
       },
       {
         "command": "blaster-extension.collapseAllTests",
-        "title": "Collapse All Properties"
+        "title": "Blaster: Collapse All Tests"
+      },
+      {
+        "command": "blaster-extension.clearAllTests",
+        "title": "Blaster: Clear All Results",
+        "enablement": "!blaster.busy"
       }
     ],
     "menus": {
       "view/title": [
         {
           "command": "blaster-extension.refreshTestTree",
-          "when": "view == blaster-test-tree",
+          "when": "view == blaster-test-tree && !blaster.activeTestRun",
           "group": "navigation@1"
         },
         {
           "command": "blaster-extension.runAllTests",
-          "when": "view == blaster-test-tree",
+          "when": "view == blaster-test-tree && !blaster.activeTestRun",
+          "group": "navigation@2"
+        },
+        {
+          "command": "blaster-extension.stopTests",
+          "when": "view == blaster-test-tree && blaster.activeTestRun",
           "group": "navigation@2"
         },
         {
@@ -127,7 +148,7 @@
         "blaster-extension.trace": {
           "type": "boolean",
           "default": false,
-          "description": "Include RPC trace messages and normal server exits in the Blaster output."
+          "description": "Include raw CLI JSON events in the Blaster output."
         }
       }
     },
@@ -166,7 +187,6 @@
   "dependencies": {
     "@vscode/codicons": "^0.0.45",
     "async": "^3.2.6",
-    "rxdb": "^17.4.0",
-    "vscode-jsonrpc": "^8.2.1"
+    "rxdb": "^17.4.0"
   }
 }

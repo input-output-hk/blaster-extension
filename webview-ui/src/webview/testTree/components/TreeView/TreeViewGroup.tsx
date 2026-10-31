@@ -8,6 +8,8 @@ import { formatRunTime } from '../../../../utils/format';
 
 interface TreeViewGroupProps {
   node: TestTreeGroupNode;
+  isBusy: boolean;
+  onShowTestLocation: (workspaceId: string, testId: string) => void;
   path: Array<string>;
   onRunTest: (testRuns: Array<TestRun>) => void;
   onOpenTestResult: (workspaceId: string, testId: string) => void;
@@ -16,6 +18,8 @@ interface TreeViewGroupProps {
 
 const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
   node,
+  isBusy,
+  onShowTestLocation,
   path,
   onRunTest,
   onUpdateOpenTestTreeNode,
@@ -28,8 +32,9 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
     status,
     isWaiting,
     isRunning,
-    isRunnable
+    isRunnable: canRun
   } = getGroupInfo(node);
+  const isRunnable = canRun && !isBusy;
 
   const treeItemRef = useTreeItemState({
     onToggleCollapsed: (isCollapsed) => {
@@ -56,6 +61,7 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
           className="flex-1 min-w-0 overflow-hidden whitespace-nowrap text-ellipsis"
           data-tooltip-id="tree-node-name"
           data-node-name={node.name}
+          title={node.name}
         >
           {node.name}
           {time !== undefined && time > 0 && !isRunning && !isWaiting &&
@@ -70,6 +76,8 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
             isRunnable ? 'opacity-60 hover:opacity-100 cursor-pointer' : 'opacity-30 cursor-not-allowed'
           }`}
           disabled={!isRunnable}
+          aria-label="Run Tests"
+          title="Run Tests"
           onClickCapture={handleRunGroup}
           data-tooltip-id="tree-node-action"
           data-tooltip-content="Run Tests"
@@ -82,6 +90,8 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
           <TreeViewGroup
             key={folderNode.name}
             node={folderNode}
+            isBusy={isBusy}
+            onShowTestLocation={onShowTestLocation}
             path={[...path, node.name]}
             onRunTest={onRunTest}
             onOpenTestResult={onOpenTestResult}
@@ -94,6 +104,8 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
           <TreeViewTest
             key={test.id}
             test={test}
+            isBusy={isBusy}
+            onShowTestLocation={onShowTestLocation}
             onRunTest={onRunTest}
             onOpenTestResult={onOpenTestResult}
           />

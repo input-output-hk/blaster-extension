@@ -21,14 +21,19 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
   const [activeView, setActiveView] = useState<'loading' | 'empty-tree' | 'tree' | 'error'>('loading');
   const [testTree, setTestTree] = useState<TestTree | null>(null);
   const [error, setError] = useState<string | undefined>();
+  const [operationState, setOperationState] = useState<TestOperationState>('idle');
+  const [hasWorkspaceFolders, setHasWorkspaceFolders] = useState(false);
 
   useEffect(() => {
-    vscode.postMessage({ type: 'webview-ready' } as WebviewToExtensionMessage);
-
     const messageHandler = (event: MessageEvent) => {
       const message = event.data as ExtensionToWebviewMessage;
+      if (message.type === 'test-operation') {
+        setOperationState(message.payload.state);
+        if (message.payload.state === 'discovering') setActiveView('loading');
+      }
       if (message.type === 'test-tree') {
-        const hasTests = Object.values(message.payload.testTree.workspaces).length > 0;
+        const hasTests = Object.values(message.payload.testTree.workspaces).some(workspace => Object.keys(workspace.nodes).length > 0);
+        setHasWorkspaceFolders(message.payload.hasWorkspaceFolders ?? Object.keys(message.payload.testTree.workspaces).length > 0);
         setTestTree(message.payload.testTree);
         setActiveView(hasTests ? 'tree' : 'empty-tree');
         setError(undefined);
@@ -51,11 +56,13 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
     };
 
     window.addEventListener('message', messageHandler);
+    vscode.postMessage({ type: 'webview-ready' } as WebviewToExtensionMessage);
     
     return () => window.removeEventListener('message', messageHandler);
   }, [vscode]);
 
   const onFetchTestTree = () => {
+    if (operationState !== 'idle') return;
     setActiveView('loading');
     vscode.postMessage({ type: 'test-tree-fetch' } as WebviewToExtensionMessage)
   };
@@ -65,6 +72,7 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
   };
 
   const onRunTest = (testRuns: Array<TestRun>) => {
+    if (operationState !== 'idle') return;
     vscode.postMessage({ type: 'test-tree-run', payload: { testRuns } } as WebviewToExtensionMessage);
   };
 
@@ -93,6 +101,10 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
     vscode.postMessage({ type: 'test-tree-open-result', payload: { workspaceId, testId } } as WebviewToExtensionMessage);
   };
 
+  const onShowTestLocation = (workspaceId: string, testId: string) => {
+    vscode.postMessage({ type: 'test-tree-show-location', payload: { workspaceId, testId } } satisfies WebviewToExtensionMessage);
+  };
+
   return (
     <>
       {activeView === 'loading' && <LoadingView />}
@@ -104,16 +116,18 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
       }
       {activeView === 'empty-tree' &&
         <EmptyView
-          message={testTree && Object.keys(testTree.workspaces).length > 0 ? 'empty-tree' : 'empty-workspaces'}
+          message={hasWorkspaceFolders ? 'empty-tree' : 'empty-workspaces'}
           onOpenFolder={onOpenFolder}
         />
       }
       {activeView === 'tree' && testTree !== null &&
         <TreeView
           testTree={testTree}
+          isBusy={operationState !== 'idle'}
           onRunTest={onRunTest}
           onUpdateOpenTestTreeNode={onUpdateOpenTestTreeNode}
           onOpenTestResult={onOpenTestResult}
+          onShowTestLocation={onShowTestLocation}
         />
       }
     </>

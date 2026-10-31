@@ -7,6 +7,8 @@ import { formatRunTime } from '../../../../utils/format';
 
 interface TreeViewWorkspaceProps {
   workspace: TestTreeWorkspaceNode;
+  isBusy: boolean;
+  onShowTestLocation: (workspaceId: string, testId: string) => void;
   onRunTest: (testRuns: Array<TestRun>) => void;
   onOpenTestResult: (workspaceId: string, testId: string) => void;
   onUpdateOpenTestTreeNode: (isOpen: boolean, workspaceId: string, group?: Array<string>) => void;
@@ -14,11 +16,13 @@ interface TreeViewWorkspaceProps {
 
 const TreeViewWorkspace: React.FC<TreeViewWorkspaceProps> = ({
   workspace,
+  isBusy,
+  onShowTestLocation,
   onRunTest,
   onOpenTestResult,
   onUpdateOpenTestTreeNode
 }) => {
-  const isRunnable = Object.keys(workspace.nodes).length > 0 && !workspace.isRunning && !workspace.isWaiting;
+  const isRunnable = !isBusy && Object.keys(workspace.nodes).length > 0 && !workspace.isRunning && !workspace.isWaiting;
   const name = workspace.path.split(/[/\\]/).filter(Boolean).at(-1) ?? workspace.path;
 
   const treeItemRef = useTreeItemState({
@@ -46,6 +50,7 @@ const TreeViewWorkspace: React.FC<TreeViewWorkspaceProps> = ({
           className="flex-1 min-w-0 overflow-hidden whitespace-nowrap text-ellipsis"
           data-tooltip-id="tree-node-name"
           data-node-name={workspace.path}
+          title={workspace.path}
         >
           {name}
           {workspace.time !== undefined && workspace.time > 0 &&
@@ -60,6 +65,8 @@ const TreeViewWorkspace: React.FC<TreeViewWorkspaceProps> = ({
             isRunnable ? 'opacity-60 hover:opacity-100 cursor-pointer' : 'opacity-30 cursor-not-allowed'
           }`}
           disabled={!isRunnable}
+          aria-label="Run Workspace Tests"
+          title="Run Workspace Tests"
           onClickCapture={handleRunWorkspace}
           data-tooltip-id="tree-node-action"
           data-tooltip-content="Run Tests"
@@ -72,6 +79,8 @@ const TreeViewWorkspace: React.FC<TreeViewWorkspaceProps> = ({
           key={node.name}
           node={node}
           path={[]}
+          isBusy={isBusy}
+          onShowTestLocation={onShowTestLocation}
           onRunTest={onRunTest}
           onOpenTestResult={onOpenTestResult}
           onUpdateOpenTestTreeNode={onUpdateOpenTestTreeNode}
