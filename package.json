@@ -130,14 +130,14 @@
           "group": "navigation@2"
         },
         {
-          "command": "blaster-extension.collapseAllTests",
+          "command": "blaster-extension.clearAllTests",
           "when": "view == blaster-test-tree",
           "group": "overflow@1"
         },
         {
-          "command": "blaster-extension.clearAllTests",
+          "command": "blaster-extension.collapseAllTests",
           "when": "view == blaster-test-tree",
-          "group": "overflow@1"
+          "group": "overflow@2"
         }
       ]
     },

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import LoadingView from './components/LoadingView';
 import EmptyView from './components/EmptyView';
 import ErrorView from './components/ErrorView';
 import TreeView from './components/TreeView';
@@ -106,12 +107,7 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
 
   return (
     <>
-      {activeView === 'loading' &&
-        <div role="status" className="h-full flex items-center justify-center gap-2 p-4">
-          <i aria-hidden="true" className="codicon codicon-loading codicon-modifier-spin" />
-          <span>Discovering tests...</span>
-        </div>
-      }
+      {activeView === 'loading' && <LoadingView />}
       {activeView === 'error' &&
         <ErrorView
           message={error}

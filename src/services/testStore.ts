@@ -184,6 +184,12 @@ export default class TestStore {
     this.testTreeOpenState[id.join(':')] = isOpen;
   }
 
+  public collapseTestTree(): void {
+    for (const key of Object.keys(this.testTreeOpenState)) {
+      this.testTreeOpenState[key] = false;
+    }
+  }
+
   public async runTests(testRuns: Array<TestRun>): Promise<void> {
     this.requireIdle();
     if (!this.isTestTreeFetched) throw new Error('Discover tests before running them.');
@@ -329,7 +335,7 @@ export default class TestStore {
   }
 
   public async collapseAllTests(): Promise<TestTree> {
-    for (const key of Object.keys(this.testTreeOpenState)) this.testTreeOpenState[key] = false;
+    this.collapseTestTree();
     return this.database.fetchTestTree(this.testTreeOpenState);
   }
 
