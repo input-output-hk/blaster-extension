@@ -1,26 +1,29 @@
 # Blaster VS Code Extension
 
-Discover Lean properties in workspace folders, run verification, and inspect
-statuses, timings, counterexample steps, and transaction graphs in VS Code.
+Discover Lean Blaster invocations, run verification with the installed
+`lean-blaster` CLI, and inspect statuses and timings in VS Code.
 
 ## Prerequisites
 
 - VS Code matching the version in `package.json`.
 - Node.js 22 or newer and npm for development.
-- Elan/Lake available on the PATH inherited by VS Code, plus each Lean project's
-    pinned toolchain, dependencies, and required solver.
-- A matching Blaster RPC API executable in `bin/`.
+- `lean-blaster` installed on the PATH inherited by the VS Code extension host.
+- A compatible Lean toolchain and Blaster build in each Lake project. The CLI
+    installation supplies its own Blaster libraries and solver; Lake must be
+    available for dependency preparation when needed.
+- A trusted, local workspace containing `lakefile.lean` or `lakefile.toml` at
+    each Lean project root.
 
-The extension launches `bin/blaster-rpc-api-${platform}-${arch}` (`.exe` on Windows).
-The bundled macOS arm64 binary is built from the companion `blaster-rpc-api`
-project. Other platform binaries are not included or verified by this migration.
-The old `sc-verifier` CLI is not used.
+The extension does not install the CLI or bundle an executable. If the command
+cannot be found, check VS Code's PATH, restart VS Code after changing it, and
+retry discovery. `lean-blaster doctor --json` can diagnose the CLI environment.
+If the CLI reports a different Blaster build in the project, align the CLI and
+project dependency revisions and rebuild the project's dependencies.
 
 ## Local Development
 
 ```sh
 npm install
-npm test
 npm run compile
 ```
 
@@ -28,43 +31,90 @@ Compilation builds the extension host into `out/` and React webviews into `build
 Open this extension project in VS Code and launch its Extension Development Host
 with F5. In that window, open a prepared Lean project and select the Blaster view.
 
-Use **Blaster: Refresh Test Tree** to discover properties. Run individual tests,
-files, folders, workspaces, or **Blaster: Run All Tests**. Opening a test result
-shows its latest state; **Blaster: Clear All Results** clears completed runs.
-Refresh and clear operations are guarded while tests are pending. Expansion state
-is retained during discovery in the current extension session.
+Automated tests are deferred. Use `npm run compile:extension` and
+`npm run compile:webview` for focused build checks.
 
-For the companion examples, prepare dependencies with `lake build Blaster` from
-its `example/` directory. The deliberately false theorem is a verification sample,
-so a full example-library build is expected to fail on that theorem.
+## Discovery and Execution
+
+Opening the Blaster view discovers each workspace root with a Lake configuration:
+
+```sh
+lean-blaster discover <project-root> --json
+```
+
+Other workspace roots are skipped. One tree row represents one source invocation,
+which may check multiple properties. Reopening the view uses the cached tree;
+**Blaster: Refresh Test Tree** explicitly rediscovers saved sources. There are no
+file watchers or automatic refreshes after edits. Expansion state is retained
+within the session. **Blaster: Collapse All Tests** collapses the current tree,
+and **Go to Source** opens an invocation's location.
+
+Selecting a row runs its entire containing file, including every sibling invocation:
+
+```sh
+lean-blaster check <file> --solver-timeout 1s --json
+```
+
+File, folder, workspace, and **Run All Tests** selections are deduplicated and
+executed one file at a time across the extension. The fixed timeout applies to
+each solver query, not to dependency preparation, elaboration, or total run time.
+Discovery and checks always use disk contents, without inspecting or saving editor buffers.
+
+**Stop Tests** replaces **Run All Tests** in the same toolbar position during a
+run. It cancels queued files and terminates the active process tree. Completed
+evidence is retained; unchecked work becomes undetermined. The toolbar returns
+to Run All only after cleanup. Refresh and clear are blocked while busy.
+File-specific failures do not stop the remaining queue; global CLI failures do.
+
+Use **Blaster: Clear All Results** to clear completed results. CLI details and
+diagnostics are available in the **Blaster** output channel; infrastructure error
+messages offer **Show Output**. A failed discovery can be retried. Partial
+discovery results remain visible with a warning.
 
 ## Result Limitations
 
-Verification status and elapsed time are real. For confirmed invalid proofs,
-`steps` and `graph` currently contain historical sample data supplied by the RPC
-API, not extracted counterexample evidence. Valid tests and tooling failures do
-not receive sample details. Rerunning a test clears its previous result first.
+Verification outcomes and reported elapsed time come from the CLI. The tree maps
+`valid` to valid, `falsified`/`error` to invalid, and `undetermined`/`skipped` to
+undetermined. A row combines all results from its invocation. A source annotation
+expecting falsification does not turn a falsified result into a passing one.
+Source discovery is syntactic: sites that do not execute are not marked valid.
 
-The counterexample table displays transaction hashes and data fields, with discarded
-steps hidden by default. The graph uses transaction and UTxO nodes and plain values.
-Real counterexample extraction is deferred to the API implementation.
+**Sample Steps** and **Sample Graph** show one hardcoded extension-owned sample,
+not extracted counterexample evidence. They appear for every failed (`invalid`)
+row, including falsifications and tooling errors. Valid and undetermined results
+do not receive sample data. Rerunning clears the previous result.
+Discarded sample steps are hidden by default. Actual goals, reasons, counterexample
+strings and expected statuses are logged in Output, not converted into a graph.
 
 ## Configuration and Protocol
 
-Enable `blaster-extension.trace` for RPC traffic and normal server exit messages
-in the **Blaster** output channel.
+Commands, discovery progress, process exits, actual results and diagnostics are
+logged without enabling trace. Enable `blaster-extension.trace` for raw CLI JSON
+events.
+The CLI service consumes newline-delimited JSON with schema version 1. Exit codes
+1 (falsified) and 3 (undetermined) are verification outcomes, not process errors.
+Malformed output or a missing completion event leaves a run incomplete.
 
-The extension uses the new `fetch` request, `run` notification, and `testEvent`
-notifications. The old RPC protocol is unsupported. Shared TypeScript types live
-in `shared/types.d.ts`; full wire documentation and native protocol tests live in
-the companion API repository.
+## Manual Verification
+
+Use the companion `CardanoLedgerApiBlaster` project for integration checks:
+
+```sh
+cd ../CardanoLedgerApiBlaster
+lean-blaster discover ./ --json
+lean-blaster check ./Tests/Scripts/HelloWorld/Properties.lean --solver-timeout 1s --json
+```
+
+In the Extension Development Host, verify first-open discovery, whole-file
+execution from one row, Run All/Stop swapping, cancellation, source navigation,
+collapse, clear, retry and partial-discovery diagnostics. Solver outcomes can
+vary under the one-second limit. Native Windows/Linux cancellation requires
+verification on those platforms.
 
 ## Project Layout
 
-- `src/`: activation, RPC process lifecycle, data store, and webview controllers.
+- `src/`: activation, CLI process lifecycle, data store, and webview controllers.
 - `shared/`: public test/tree/result/message types.
 - `webview-ui/`: React tree and result views.
-- `scripts/regression.test.cjs`: focused state, selection, subscription, and queue tests.
-- `bin/`: platform-specific RPC executables.
 
 See `CONTRIBUTING.md` for contribution guidelines.

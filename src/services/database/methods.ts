@@ -184,8 +184,8 @@ export const handleTestRun = async (database: Database, testRuns: Array<TestRun>
 	}
 };
 
-const createTestTree = (workspaceId: string, openState: Record<string, boolean>, tests: Array<Test>): GenericMap<TestTreeGroupNode> => {
-	const nodes: GenericMap<TestTreeGroupNode> = {};
+export const createTestTree = (workspaceId: string, openState: Record<string, boolean>, tests: Array<Test>): GenericMap<TestTreeGroupNode> => {
+	const nodes: GenericMap<TestTreeGroupNode> = Object.create(null);
 
 	for (const test of tests) {
 		const group = test.group.length > 0 ? test.group : [basename(test.location.path)];
@@ -202,7 +202,7 @@ const createTestTree = (workspaceId: string, openState: Record<string, boolean>,
 				(currentNodes[name] as TestTreeFileNode).tests[test.id] = test;
 			} else {
 				if (currentNodes[name] === undefined) {
-					currentNodes[name] = { type: 'folder', name, isOpen, nodes: {} } as TestTreeFolderNode;
+					currentNodes[name] = { type: 'folder', name, isOpen, nodes: Object.create(null) } as TestTreeFolderNode;
 				}
 				currentNodes = (currentNodes[name] as TestTreeFolderNode).nodes;
 			}
@@ -248,7 +248,7 @@ const getTreeTests = (nodes: GenericMap<TestTreeGroupNode>): Array<Test> => {
 	return tests;
 };
 
-export const storeTestTree = async (database: Database, testTree: TestTree, openState: Record<string, boolean>): Promise<TestTree> => {
+export const storeTestTree = async (database: Database, testTree: TestTree, openState: Record<string, boolean>, refreshed?: Set<string>): Promise<TestTree> => {
 	const workspaceIds = new Set(Object.keys(testTree.workspaces));
 	const workspaceDocuments = await database.workspaces.find().exec();
 
@@ -262,6 +262,8 @@ export const storeTestTree = async (database: Database, testTree: TestTree, open
 	}
 
 	for (const workspace of Object.values(testTree.workspaces)) {
+		if (refreshed && !refreshed.has(workspace.id)) continue;
+		await database.testResults.find({ selector: { workspaceId: workspace.id } }).remove();
 		const tests = getTreeTests(workspace.nodes);
 		const testIds = new Set(tests.map(test => test.id));
 		const testDocuments = await database.tests.find({

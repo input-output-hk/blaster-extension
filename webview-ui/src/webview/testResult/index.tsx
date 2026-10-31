@@ -23,8 +23,6 @@ const TestResultView: React.FC<Props> = ({ vscode }) => {
   const [selectedTab, setSelectedTab] = useState<string>(COUNTEREXAMPLE_TAB);
 
   useEffect(() => {
-    vscode.postMessage({ type: 'webview-ready' } as WebviewToExtensionMessage);
-
     const messageHandler = (event: MessageEvent) => {
       const message = event.data as ExtensionToWebviewMessage;
       if (message.type === 'test-result') {
@@ -34,6 +32,7 @@ const TestResultView: React.FC<Props> = ({ vscode }) => {
     };
 
     window.addEventListener('message', messageHandler);
+    vscode.postMessage({ type: 'webview-ready' } as WebviewToExtensionMessage);
     return () => window.removeEventListener('message', messageHandler);
   }, [vscode]);
 
