@@ -88,6 +88,11 @@
         "icon": "$(run-all)"
       },
       {
+        "command": "blaster-extension.showOutput",
+        "title": "Blaster: Show Output",
+        "icon": "$(terminal)"
+      },
+      {
         "command": "blaster-extension.clearAllTests",
         "title": "Clear All Results"
       },
@@ -107,6 +112,11 @@
           "command": "blaster-extension.runAllTests",
           "when": "view == blaster-test-tree",
           "group": "navigation@2"
+        },
+        {
+          "command": "blaster-extension.showOutput",
+          "when": "view == blaster-test-tree",
+          "group": "navigation@3"
         },
         {
           "command": "blaster-extension.clearAllTests",
