@@ -103,6 +103,11 @@
         "enablement": "blaster.activeTestRun && !blaster.stoppingTests"
       },
       {
+        "command": "blaster-extension.showOutput",
+        "title": "Blaster: Show Output",
+        "icon": "$(terminal)"
+      },
+      {
         "command": "blaster-extension.collapseAllTests",
         "title": "Blaster: Collapse All Tests"
       },
@@ -128,6 +133,11 @@
           "command": "blaster-extension.stopTests",
           "when": "view == blaster-test-tree && blaster.activeTestRun",
           "group": "navigation@2"
+        },
+        {
+          "command": "blaster-extension.showOutput",
+          "when": "view == blaster-test-tree",
+          "group": "navigation@3"
         },
         {
           "command": "blaster-extension.clearAllTests",
