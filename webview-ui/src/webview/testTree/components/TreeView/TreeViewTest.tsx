@@ -19,7 +19,10 @@ const TreeViewTest: React.FC<TreeViewTestProps> = ({
   onOpenTestResult
 }) => {
   const isRunnable = !isBusy && !test.isRunning && !test.isWaiting;
-  const hasResult = test.status === 'invalid';
+  const hasResult = test.status !== 'undetermined';
+  const isFalsified = test.status === 'invalid';
+  const resultIcon = isFalsified ? 'codicon-graph-line' : 'codicon-output';
+  const resultTooltip = isFalsified ? 'View Results' : 'View Details';
 
   const handleOpenTestResult = (event: React.MouseEvent<HTMLButtonElement>): void => {
     event.preventDefault();
@@ -80,9 +83,9 @@ const TreeViewTest: React.FC<TreeViewTestProps> = ({
             aria-label="View Results"
             title="View Results"
             data-tooltip-id="tree-node-action"
-            data-tooltip-content="View Results"
+            data-tooltip-content={resultTooltip}
           >
-            <i className="codicon codicon-tasklist" />
+            <i className={`codicon ${resultIcon}`} />
           </button>
         }
 
