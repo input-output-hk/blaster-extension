@@ -32,6 +32,9 @@ export default class TestTreeView {
 
     const collapseAllTestsCommand = vscode.commands.registerCommand('blaster-extension.collapseAllTests', this.collapseAllTests.bind(this));
     context.extension.subscriptions.push(collapseAllTestsCommand);
+
+    const showOutputCommand = vscode.commands.registerCommand('blaster-extension.showOutput', this.showOutput.bind(this));
+    context.extension.subscriptions.push(showOutputCommand);
   }
 
   public refreshTestTree(): void {
@@ -111,6 +114,10 @@ export default class TestTreeView {
 
   private runAllTests(): void {
     this.context.testStore.runAllTests().catch(error => this.reportError(error));
+  }
+
+  private showOutput(): void {
+    this.context.outputChannel.show(true);
   }
 
   private collapseAllTests(): void {
