@@ -1,5 +1,6 @@
 import { VscodeTree } from '@vscode-elements/react-elements';
 
+import Tooltip from '../../../../components/Tooltip';
 import TreeViewWorkspace from './TreeViewWorkspace';
 
 interface TreeViewProps {
@@ -27,6 +28,7 @@ const TreeView: React.FC<TreeViewProps> = ({
         />
       ))}
     </VscodeTree>
+    <Tooltip id="tree-node-action" place="bottom" />
   </div>
 );
 
