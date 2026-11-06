@@ -48,8 +48,8 @@ export default class Database {
     return await fetchTestTree(this.database!, openState);
   }
 
-  public async storeTestTree(testTree: TestTree, openState: Record<string, boolean>): Promise<TestTree> {
-    return await storeTestTree(this.database!, testTree, openState);
+  public async storeTestTree(testTree: TestTree, openState: Record<string, boolean>, refreshed?: Set<string>): Promise<TestTree> {
+    return await storeTestTree(this.database!, testTree, openState, refreshed);
   }
 
   public async clearTestResults(): Promise<void> {
@@ -58,18 +58,6 @@ export default class Database {
 
   public async handleTestRun(testRuns: Array<TestRun>): Promise<void> {
     return await handleTestRun(this.database!, testRuns);
-  }
-
-  public async failPendingTests(): Promise<void> {
-    const tests = await this.database!.tests.find({
-      selector: { $or: [{ isWaiting: true }, { isRunning: true }] }
-    }).exec();
-    for (const test of tests) {
-      await this.handleTestErrorEvent({
-        type: 'test-error',
-        payload: { workspaceId: test.workspaceId, testId: test.testId, error: { message: 'RPC connection closed' } }
-      });
-    }
   }
 
   public async dispose(): Promise<void> {

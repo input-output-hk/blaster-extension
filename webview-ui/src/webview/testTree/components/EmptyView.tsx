@@ -5,8 +5,8 @@ interface Props {
   onOpenFolder: () => void;
 }
 
-const MESSAGE_EMPTY_WORKSPACES = 'No folders detected in the workspace. Open a folder with the necessary test suite files for tests to appear.';
-const MESSAGE_EMPTY_TREE = 'No test suites found in this workspace. Open a different folder, or add a test-suite file to the open folder.';
+const MESSAGE_EMPTY_WORKSPACES = 'No workspace folder is open.';
+const MESSAGE_EMPTY_TREE = 'No Blaster invocations were discovered in the open Lean projects.';
 
 const EmptyView: React.FC<Props> = ({ onOpenFolder, message }) => (
   <div className="h-full p-4">

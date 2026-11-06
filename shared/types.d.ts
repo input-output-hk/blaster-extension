@@ -1,6 +1,7 @@
 // Test
 
 type RunStatus = "undetermined" | "valid" | "invalid";
+type TestOperationState = "idle" | "discovering" | "running" | "stopping";
 
 type Test = {
   id: string;
@@ -134,6 +135,7 @@ type TxAsset = {
 
 type TestTreePayload = {
   testTree: TestTree;
+  hasWorkspaceFolders?: boolean;
 };
 
 type TestTreeUpdate =
@@ -172,6 +174,7 @@ type UpdateOpenStatePayload = {
 
 type ExtensionToWebviewMessage =
   | { type: "test-tree"; payload: TestTreePayload }
+  | { type: "test-operation"; payload: { state: TestOperationState } }
   | { type: "test-tree-error"; payload: { message: string } }
   | { type: "test-tree-update"; payload: TestTreeUpdate }
   | { type: "test-result"; payload: TestResultPayload };
@@ -181,27 +184,9 @@ type WebviewToExtensionMessage =
   | { type: "test-tree-fetch" }
   | { type: "test-tree-run"; payload: TestRunPayload }
   | { type: "test-tree-open-result"; payload: OpenResultPayload }
+  | { type: "test-tree-show-location"; payload: OpenResultPayload }
   | { type: "test-tree-update-open-state"; payload: UpdateOpenStatePayload }
   | { type: "test-tree-open-folder" };
-
-// RPC Messages
-
-type RpcFetchParams = {
-  workspaces: Array<Workspace>;
-};
-
-type RpcFetchResponse = {
-  testTree: TestTree;
-};
-
-type RpcTestRun = {
-  workspacePath: string;
-  testIds?: Array<string>;
-};
-
-type RpcRunParams = {
-  testRuns: Array<RpcTestRun>;
-};
 
 // Test Event
 
