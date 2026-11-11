@@ -18,7 +18,7 @@ export const finalStringSchema = {
 
 export const runStatusSchema = {
   type: 'string',
-  enum: ['undetermined', 'valid', 'invalid'],
+  enum: ['empty', 'undetermined', 'valid', 'invalid'],
 } as const;
 
 export const workspaceIdSchema = {

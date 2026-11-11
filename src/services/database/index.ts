@@ -13,6 +13,8 @@ import {
   onTestUpdate,
   onTestTreeUpdate,
   handleTestRun,
+  handleTestRunAll,
+  handleTestRunFailedEvent,
   handleTestUpdateEvent,
   handleTestResultEvent,
   handleTestErrorEvent
@@ -44,6 +46,10 @@ export default class Database {
     return await handleTestErrorEvent(this.database!, event);
   }
 
+  public async handleTestRunFailedEvent(event: TestRunFailedEvent): Promise<void> {
+    return await handleTestRunFailedEvent(this.database!, event);
+  }
+
   public async fetchTestTree(openState: Record<string, boolean>): Promise<TestTree> {
     return await fetchTestTree(this.database!, openState);
   }
@@ -60,21 +66,8 @@ export default class Database {
     return await handleTestRun(this.database!, testRuns);
   }
 
-  public async failPendingTests(): Promise<void> {
-    const tests = await this.database!.tests.find({
-      selector: { $or: [{ isWaiting: true }, { isRunning: true }] }
-    }).exec();
-    for (const test of tests) {
-      await this.handleTestErrorEvent({
-        type: 'test-error',
-        payload: { workspaceId: test.workspaceId, testId: test.testId, error: { message: 'RPC connection closed' } }
-      });
-    }
-  }
-
-  public async dispose(): Promise<void> {
-    await this.database?.close();
-    this.database = null;
+  public async handleTestRunAll(): Promise<void> {
+    return await handleTestRunAll(this.database!);
   }
 
   public async getTest(workspaceId: string, testId: string): Promise<Test> {
@@ -85,11 +78,11 @@ export default class Database {
     return await getTestResult(this.database!, workspaceId, testId);
   }
 
-  public onTestUpdate(callback: (payload: TestTreeUpdate) => void): () => void {
+  public onTestUpdate(callback: (payload: TestTreeUpdate) => void): void {
     return onTestUpdate(this.database!, callback);
   }
 
-  public onTestTreeUpdate(openState: Record<string, boolean>, callback: (payload: TestTreeUpdate) => void): () => void {
+  public onTestTreeUpdate(openState: Record<string, boolean>, callback: (payload: TestTreeUpdate) => void): void {
     return onTestTreeUpdate(this.database!, openState, callback);
   }
 }

@@ -15,26 +15,19 @@ export default class TestTreeView {
   public activate(context: BlasterContext) {
     this.context = context;
     context.extension.subscriptions.push(
-      context.testStore.onTestTreeUpdate(this.onTestTreeUpdate.bind(this))
+      vscode.window.registerWebviewViewProvider(
+        'blaster-test-tree',
+        new GenericWebviewViewProvider(context.extension.extensionUri, 'testTree', this.onWebviewResolved.bind(this))
+      ),
+
+      vscode.commands.registerCommand('blaster-extension.refreshTestTree', this.refreshTestTree.bind(this)),
+      vscode.commands.registerCommand('blaster-extension.runAllTests', this.runAllTests.bind(this)),
+      vscode.commands.registerCommand('blaster-extension.clearAllTests', this.clearAllTests.bind(this)),
+      vscode.commands.registerCommand('blaster-extension.collapseAllTests', this.collapseAllTests.bind(this)),
+      vscode.commands.registerCommand('blaster-extension.showOutput', this.showOutput.bind(this))
     );
-    const provider = new GenericWebviewViewProvider(context.extension.extensionUri, 'testTree', this.onWebviewResolved.bind(this));
-    const disposable = vscode.window.registerWebviewViewProvider('blaster-test-tree', provider);
-    context.extension.subscriptions.push(disposable);
 
-    const refreshTestTreeCommand = vscode.commands.registerCommand('blaster-extension.refreshTestTree', this.refreshTestTree.bind(this));
-    context.extension.subscriptions.push(refreshTestTreeCommand);
-
-    const runAllTestsCommand = vscode.commands.registerCommand('blaster-extension.runAllTests', this.runAllTests.bind(this));
-    context.extension.subscriptions.push(runAllTestsCommand);
-
-    const clearAllTestsCommand = vscode.commands.registerCommand('blaster-extension.clearAllTests', this.clearAllTests.bind(this));
-    context.extension.subscriptions.push(clearAllTestsCommand);
-
-    const collapseAllTestsCommand = vscode.commands.registerCommand('blaster-extension.collapseAllTests', this.collapseAllTests.bind(this));
-    context.extension.subscriptions.push(collapseAllTestsCommand);
-
-    const showOutputCommand = vscode.commands.registerCommand('blaster-extension.showOutput', this.showOutput.bind(this));
-    context.extension.subscriptions.push(showOutputCommand);
+    this.context.testStore.onTestTreeUpdate(this.onTestTreeUpdate.bind(this));
   }
 
   public refreshTestTree(): void {

@@ -9,12 +9,26 @@ statuses, timings, counterexample steps, and transaction graphs in VS Code.
 - Node.js 22 or newer and npm for development.
 - Elan/Lake available on the PATH inherited by VS Code, plus each Lean project's
     pinned toolchain, dependencies, and required solver.
-- A matching Blaster RPC API executable in `bin/`.
+- The `lean-blaster` CLI on the same PATH (see the Lean-blaster repository).
 
-The extension launches `bin/blaster-rpc-api-${platform}-${arch}` (`.exe` on Windows).
-The bundled macOS arm64 binary is built from the companion `blaster-rpc-api`
-project. Other platform binaries are not included or verified by this migration.
-The old `sc-verifier` CLI is not used.
+Discovery runs `lean-blaster discover <workspace> --json` for each workspace folder.
+Runs use `lean-blaster check <file.lean> --solver-timeout 1s --json`; Lean checks
+whole files, so running one test runs every test in its file.
+
+Run selections use workspace-relative file paths (forward slashes) and one-based
+`line:column` IDs, for example:
+
+```json
+{
+  "workspaceId": "workspace-id",
+  "tests": [{ "uri": "Tests/Recursor.lean", "ids": ["17:40"] }]
+}
+```
+
+Omitting `tests` selects the whole workspace. Omitting `ids` selects the whole
+file. Explicit empty arrays (`tests: []` or `ids: []`) select nothing. Selected
+positions are validated before the run is expanded to all discovered tests in
+each selected file; unrelated files and workspaces are not changed.
 
 ## Local Development
 
@@ -28,43 +42,42 @@ Compilation builds the extension host into `out/` and React webviews into `build
 Open this extension project in VS Code and launch its Extension Development Host
 with F5. In that window, open a prepared Lean project and select the Blaster view.
 
+`npm test` checks the UI request shape, file/position selection, whole-file
+execution, and scoped failure handling without requiring Lean.
+
 Use **Blaster: Refresh Test Tree** to discover properties. Run individual tests,
 files, folders, workspaces, or **Blaster: Run All Tests**. Opening a test result
 shows its latest state; **Blaster: Clear All Results** clears completed runs.
-Refresh and clear operations are guarded while tests are pending. Expansion state
-is retained during discovery in the current extension session.
+Expansion state is retained during discovery in the current extension session.
 
-For the companion examples, prepare dependencies with `lake build Blaster` from
-its `example/` directory. The deliberately false theorem is a verification sample,
-so a full example-library build is expected to fail on that theorem.
+The CLI prepares missing or stale project imports with Lake. The project's Lean
+toolchain and Blaster dependency must be compatible with the installed CLI.
 
 ## Result Limitations
 
-Verification status and elapsed time are real. For confirmed invalid proofs,
-`steps` and `graph` currently contain historical sample data supplied by the RPC
-API, not extracted counterexample evidence. Valid tests and tooling failures do
-not receive sample details. Rerunning a test clears its previous result first.
+Status and elapsed time come from `lean-blaster`. A result matching the source's
+expected status (e.g. `(solve-result: 1)`) counts as valid; errors, skipped checks,
+and discovered sites that produce no result count as invalid.
+Unrun tests have the `empty` status (grey circle). Undetermined results use a
+purple (`#B180D7`) question icon and expose the details view. Multiple results
+from one invocation are combined using the worst status and summed elapsed time.
+The fixed 1s timeout applies per solver query, not to the total file runtime.
+For falsified results, `steps` and `graph` contain sample data, not extracted
+counterexample evidence. Rerunning a test clears its previous result first.
 
 The counterexample table displays transaction hashes and data fields, with discarded
 steps hidden by default. The graph uses transaction and UTxO nodes and plain values.
-Real counterexample extraction is deferred to the API implementation.
+Real counterexample extraction is deferred.
 
-## Configuration and Protocol
+## Output
 
-Enable `blaster-extension.trace` for RPC traffic and normal server exit messages
-in the **Blaster** output channel.
-
-The extension uses the new `fetch` request, `run` notification, and `testEvent`
-notifications. The old RPC protocol is unsupported. Shared TypeScript types live
-in `shared/types.d.ts`; full wire documentation and native protocol tests live in
-the companion API repository.
+CLI commands, Lean/Lake stderr, and diagnostics are written to the **Blaster**
+output channel. Shared TypeScript types live in `shared/types.d.ts`.
 
 ## Project Layout
 
-- `src/`: activation, RPC process lifecycle, data store, and webview controllers.
+- `src/`: activation, `lean-blaster` process handling, data store, and webview controllers.
 - `shared/`: public test/tree/result/message types.
 - `webview-ui/`: React tree and result views.
-- `scripts/regression.test.cjs`: focused state, selection, subscription, and queue tests.
-- `bin/`: platform-specific RPC executables.
 
 See `CONTRIBUTING.md` for contribution guidelines.

@@ -10,8 +10,10 @@ const mapTestStatusToClassName = (status: RunStatus, isWaiting: boolean, isRunni
   if (isRunning) return 'codicon-loading';
   if (isWaiting) return 'codicon-history text-[var(--vscode-testing-iconQueued)]';
   switch (status) {
-    case 'undetermined':
+    case 'empty':
       return 'codicon-circle text-[var(--vscode-testing-iconUnset)]';
+    case 'undetermined':
+      return 'codicon-question text-[#B180D7]';
     case 'valid':
       return 'codicon-pass text-[var(--vscode-testing-iconPassed)]';
     case 'invalid':

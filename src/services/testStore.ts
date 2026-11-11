@@ -1,8 +1,7 @@
 import * as vscode from 'vscode';
-import { createHash } from 'node:crypto';
 import { queue } from 'async';
 
-import RpcClient from './rpcClient';
+import Command from './command';
 import Database from './database';
 import { BlasterContext } from '../extension';
 
@@ -10,52 +9,26 @@ import type { QueueObject } from 'async';
 
 export default class TestStore {
   private context: BlasterContext = {} as BlasterContext;
+  private command: Command;
   private database: Database;
-  private rpcClient: RpcClient;
-  private eventQueue: QueueObject<() => Promise<void>>;
-  private subscriptions: Array<vscode.Disposable> = [];
-  private disposePromise: Promise<void> | null = null;
+  private eventQueue: QueueObject<TestEvent>;
 
-  private workspaces: Map<string, Workspace>;
   private isTestTreeFetched: boolean = false;
   private testTreeOpenState: Record<string, boolean> = {};
 
   constructor(context: vscode.ExtensionContext) {
-    this.rpcClient = new RpcClient(context);
+    this.command = new Command();
     this.database = new Database();
-    this.eventQueue = queue<() => Promise<void>>(async operation => { await operation(); }, 1);
-
-    this.workspaces = new Map(
-      vscode.workspace.workspaceFolders?.map(folder => [
-        this.makeWorkspaceId(folder.uri.fsPath),
-        {
-          id: this.makeWorkspaceId(folder.uri.fsPath),
-          path: folder.uri.fsPath
-        }
-      ]) || []
-    );
-  }
-
-  private makeWorkspaceId(workspacePath: string): string {
-    return createHash('sha256').update(workspacePath).digest('hex').slice(0, 8);
+    this.eventQueue = queue<TestEvent>(this.handleTestEvent.bind(this), 1);
   }
 
   public async initialize(context: BlasterContext): Promise<void> {
     this.context = context;
 
     await this.database.initialize();
-    await this.rpcClient.initialize(context);
+    await this.command.initialize(context);
 
-    this.rpcClient.onTestEvent(event => {
-      void this.eventQueue.pushAsync(() => this.handleTestEvent(event)).catch(error => {
-        context.outputChannel.appendLine(`> ERROR processing test event: ${String(error)}`);
-      });
-    });
-    this.rpcClient.onDisconnect(() => {
-      void this.eventQueue.pushAsync(() => this.database.failPendingTests()).catch(error => {
-        context.outputChannel.appendLine(`> ERROR clearing pending tests: ${String(error)}`);
-      });
-    });
+    this.command.onTestEvent(this.eventQueue.push);
   }
 
   private async handleTestEvent(event: TestEvent): Promise<void> {
@@ -68,6 +41,9 @@ export default class TestStore {
         break;
       case 'test-error':
         await this.handleTestErrorEvent(event as TestErrorEvent);
+        break;
+      case 'test-run-failed':
+        await this.handleTestRunFailedEvent(event as TestRunFailedEvent);
         break;
     }
   }
@@ -84,27 +60,15 @@ export default class TestStore {
     await this.database.handleTestErrorEvent(event);
   }
 
+  private async handleTestRunFailedEvent(event: TestRunFailedEvent): Promise<void> {
+    await this.database.handleTestRunFailedEvent(event);
+  }
+
   public async fetchTestTree(): Promise<TestTree> {
-    this.workspaces = new Map(
-      vscode.workspace.workspaceFolders?.map(folder => [
-        this.makeWorkspaceId(folder.uri.fsPath),
-        {
-          id: this.makeWorkspaceId(folder.uri.fsPath),
-          path: folder.uri.fsPath
-        }
-      ]) || []
-    );
-
-    const { testTree } = await this.rpcClient.fetchTestTree({
-      workspaces: Array.from(this.workspaces.values())
-    });
-
-    let storedTree = testTree;
-    await this.eventQueue.pushAsync(async () => {
-      storedTree = await this.database.storeTestTree(testTree, this.testTreeOpenState);
-    });
+    const discoveredTestTree = await this.command.discover();
+    const storedTestTree = await this.database.storeTestTree(discoveredTestTree, this.testTreeOpenState);
     this.isTestTreeFetched = true;
-    return storedTree;
+    return storedTestTree;
   }
 
   public async getTestTree(): Promise<TestTree | undefined> {
@@ -124,33 +88,18 @@ export default class TestStore {
     }
   }
 
-  public async runTests(testRuns: Array<TestRun>): Promise<void> {
-    if (!this.isTestTreeFetched) throw new Error('Discover tests before running them.');
-    const params: RpcRunParams = {
-      testRuns: testRuns.map(testRun => {
-        const workspace = this.workspaces.get(testRun.workspaceId);
-        if (!workspace) throw new Error(`Unknown workspace: ${testRun.workspaceId}`);
-        return { workspacePath: workspace.path, testIds: testRun.testIds };
-      })
-    };
-    await this.eventQueue.pushAsync(async () => {
-      await this.database.handleTestRun(testRuns);
-      try {
-        await this.rpcClient.testRun(params);
-      } catch (error) {
-        await this.database.failPendingTests();
-        throw error;
-      }
-    });
+  public async runTests(testRuns?: Array<TestRun>): Promise<void> {
+    const runs = this.command.prepareTestRuns(testRuns);
+    await this.database.handleTestRun(runs);
+    this.command.runTests(runs);
   }
 
   public async runAllTests(): Promise<void> {
-    const testRuns = Array.from(this.workspaces.values()).map(v => ({ workspaceId: v.id }));
-    await this.runTests(testRuns);
+    await this.runTests();
   }
 
   public async clearTestResults(): Promise<void> {
-    await this.eventQueue.pushAsync(() => this.database.clearTestResults());
+    await this.database.clearTestResults();
   }
 
   public async getTestResult(workspaceId: string, testId: string): Promise<{ test: Test, result: TestResult }> {
@@ -159,26 +108,8 @@ export default class TestStore {
     return { test, result };
   }
 
-  public onTestTreeUpdate(callback: (payload: TestTreeUpdate) => void): vscode.Disposable {
-    const unsubscribeTests = this.database.onTestUpdate(callback);
-    const unsubscribeTree = this.database.onTestTreeUpdate(this.testTreeOpenState, callback);
-    const subscription = new vscode.Disposable(() => {
-      unsubscribeTests();
-      unsubscribeTree();
-    });
-    this.subscriptions.push(subscription);
-    return subscription;
-  }
-
-  public dispose(): Promise<void> {
-    if (!this.disposePromise) {
-      this.disposePromise = (async () => {
-        for (const subscription of this.subscriptions) subscription.dispose();
-        await this.rpcClient.dispose();
-        if (!this.eventQueue.idle()) await this.eventQueue.drain();
-        await this.database.dispose();
-      })();
-    }
-    return this.disposePromise;
+  public onTestTreeUpdate(callback: (payload: TestTreeUpdate) => void): void {
+    this.database.onTestUpdate(callback);
+    this.database.onTestTreeUpdate(this.testTreeOpenState, callback);
   }
 }

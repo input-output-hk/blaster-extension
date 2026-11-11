@@ -1,7 +1,9 @@
 
+import { getTestRunLocation } from '../../../../../src/utils/testRun';
+
 export type TestGroupInfo = {
   workspaceId: string;
-  testIds: Array<string>;
+  tests: NonNullable<TestRun['tests']>;
   time?: number;
   status: RunStatus;
   isWaiting: boolean;
@@ -21,20 +23,27 @@ const getGroupTests = (group: TestTreeGroupNode): Array<Test> => {
 
 export const getGroupInfo = (node: TestTreeGroupNode): TestGroupInfo => {
   const tests: Array<Test> = getGroupTests(node);
+  const selections = new Map<string, Array<string>>();
+  for (const test of tests) {
+    const { uri, id } = getTestRunLocation(test);
+    const ids = selections.get(uri) ?? [];
+    ids.push(id);
+    selections.set(uri, ids);
+  }
 
   const isRunning = tests.some(test => test.isRunning);
   const isWaiting = tests.some(test => test.isWaiting) && !isRunning;
 
-  const status = tests.some(test => test.status === 'invalid')
-    ? 'invalid'
-    : tests.length > 0 && tests.every(test => test.status === 'valid') ? 'valid' : 'undetermined';
+  const status: RunStatus = tests.some(test => test.status === 'invalid') ? 'invalid'
+    : tests.length > 0 && tests.every(test => test.status === 'valid') ? 'valid'
+    : tests.some(test => test.status === 'undetermined') ? 'undetermined' : 'empty';
 
   const time = isWaiting || isRunning ? undefined
     : tests.reduce((sum, test) => sum + (test.time ?? 0), 0);
 
   return {
     workspaceId: tests[0]?.workspaceId ?? '',
-    testIds: tests.map(test => test.id),
+    tests: Array.from(selections, ([uri, ids]) => ({ uri, ids })),
     isRunnable: tests.length > 0 && !isWaiting && !isRunning,
     isWaiting,
     isRunning,
