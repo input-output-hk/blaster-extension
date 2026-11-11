@@ -6,6 +6,7 @@ import TreeViewWorkspace from './TreeViewWorkspace';
 interface TreeViewProps {
   testTree: TestTree;
   onRunTest: (testRuns: Array<TestRun>) => void;
+  onFetchTestTree: () => void;
   onOpenTestResult: (workspaceId: string, testId: string) => void;
   onUpdateOpenTestTreeNode: (isOpen: boolean, workspaceId: string, group?: Array<string>) => void;
 }
@@ -13,6 +14,7 @@ interface TreeViewProps {
 const TreeView: React.FC<TreeViewProps> = ({
   testTree,
   onRunTest,
+  onFetchTestTree,
   onUpdateOpenTestTreeNode,
   onOpenTestResult
 }) => (
@@ -23,6 +25,7 @@ const TreeView: React.FC<TreeViewProps> = ({
           key={workspace.id}
           workspace={workspace}
           onRunTest={onRunTest}
+          onFetchTestTree={onFetchTestTree}
           onOpenTestResult={onOpenTestResult}
           onUpdateOpenTestTreeNode={onUpdateOpenTestTreeNode}
         />

@@ -73,6 +73,10 @@ export default class TestTreeView {
   }
 
   private getTestTree(): void {
+    if (this.context.testStore.getDiscoveryError() !== undefined) {
+      this.sendTestTreeErrorToWebview();
+      return;
+    }
     this.context.testStore.getTestTree().then((testTree?: TestTree) => {
       if (testTree !== undefined) {
         this.sendTestTreeToWebview(testTree);
@@ -81,6 +85,10 @@ export default class TestTreeView {
   }
 
   private loadTestTree(): void {
+    if (this.context.testStore.getDiscoveryError() !== undefined) {
+      this.sendTestTreeErrorToWebview();
+      return;
+    }
     this.context.testStore.getTestTree().then((testTree?: TestTree) => {
       if (testTree !== undefined) {
         this.sendTestTreeToWebview(testTree);
@@ -96,7 +104,8 @@ export default class TestTreeView {
     };
     this.pendingFetch = this.context.testStore.fetchTestTree().then((testTree: TestTree) => {
       this.sendTestTreeToWebview(testTree);
-    }).catch(error => this.reportError(error, true)).finally(() => {
+      this.reportDiscoveryFileErrors();
+    }).catch(error => this.reportDiscoveryError(error)).finally(() => {
       this.pendingFetch = null;
     });
   }
@@ -128,9 +137,28 @@ export default class TestTreeView {
     const message = error instanceof Error ? error.message : String(error);
     this.context.outputChannel.appendLine(`> ERROR: ${message}`);
     void vscode.window.showErrorMessage(message);
-    if (treeError) {
-      void this.webview?.postMessage({ type: 'test-tree-error', payload: { message } } satisfies ExtensionToWebviewMessage);
-    }
+    if (treeError) this.sendTestTreeErrorToWebview();
+  }
+
+  private reportDiscoveryError(error: unknown): void {
+    const message = error instanceof Error ? error.message : String(error);
+    this.context.outputChannel.appendLine(`> ERROR: Property discovery failed: ${message}`);
+    this.sendTestTreeErrorToWebview();
+  }
+
+  private reportDiscoveryFileErrors(): void {
+    const fileErrors = this.context.testStore.getDiscoveryFileErrors();
+    if (fileErrors.length === 0) return;
+    const files = Array.from(new Set(fileErrors.map(error => error.group.at(-1)))).join(', ');
+    void vscode.window.showErrorMessage(
+      `Property Discovery Error: An error occurred in ${files}. View output for more details.`, 'Show Output'
+    ).then(action => {
+      if (action) this.showOutput();
+    });
+  }
+
+  private sendTestTreeErrorToWebview(): void {
+    void this.webview?.postMessage({ type: 'test-tree-error' } satisfies ExtensionToWebviewMessage);
   }
 
   private openTestResult(payload: OpenResultPayload): void {
