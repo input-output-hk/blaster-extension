@@ -1,4 +1,5 @@
 import { basename } from 'node:path';
+import { matchesTestRun } from '../../utils/testRun';
 
 import type { Database, TestDocument, TestDocumentData, WorkspaceDocument } from './collections';
 
@@ -62,9 +63,9 @@ const updateWorkspace = async (database: Database, workspaceId: string): Promise
 
 	const isWaiting = tests.some(test => test.isWaiting);
 	const isRunning = tests.some(test => test.isRunning) || (workspaceDocument.isRunning && isWaiting);
-	const status: RunStatus = tests.some(test => test.status === 'invalid')
-		? 'invalid'
-		: tests.length > 0 && tests.every(test => test.status === 'valid') ? 'valid' : 'undetermined';
+	const status: RunStatus = tests.some(test => test.status === 'invalid') ? 'invalid'
+		: tests.length > 0 && tests.every(test => test.status === 'valid') ? 'valid'
+		: tests.some(test => test.status === 'undetermined') ? 'undetermined' : 'empty';
 
 	await workspaceDocument.update({
 		$set: {
@@ -97,7 +98,7 @@ export const handleTestUpdateEvent = async (database: Database, event: TestUpdat
 
 		if (status !== undefined) {
 			updateData.status = status;
-			updateData.isRunning = false;
+			updateData.isRunning = isRunning ?? false;
 			updateData.isWaiting = false;
 		}
 
@@ -135,52 +136,50 @@ export const handleTestErrorEvent = async (database: Database, event: TestErrorE
 	});
 };
 
+const getRunTests = async (database: Database, testRuns: Array<TestRun>): Promise<Array<TestDocument>> => {
+	const workspaceIds = Array.from(new Set(testRuns.map(run => run.workspaceId)));
+	const tests = await database.tests.find({ selector: { workspaceId: { $in: workspaceIds } } }).exec();
+	return tests.filter(test => testRuns.some(run => matchesTestRun(test, run)));
+};
+
 export const handleTestRun = async (database: Database, testRuns: Array<TestRun>): Promise<void> => {
-	const allTestsIds: Set<string> = new Set();
-	const testWorkspacesIds: Set<string> = new Set();
-	const allWorkspacesIds: Set<string> = new Set();
+	const tests = await getRunTests(database, testRuns);
+	
+	if (tests.length === 0) return;
+	const testIds = tests.map(test => test.id);
+	const workspaceIds = Array.from(new Set(tests.map(test => test.workspaceId)));
 
-	for (const { workspaceId, testIds } of testRuns) {
-		if (testIds !== undefined) {
-			if (testIds.length === 0) continue;
-			for (const testId of testIds) allTestsIds.add(`${workspaceId}:${testId}`);
-		} else {
-			testWorkspacesIds.add(workspaceId);
-		}
-		allWorkspacesIds.add(workspaceId);
-	}
+	await database.tests
+		.findByIds(testIds)
+		.update({ $set: { isWaiting: true, status: 'empty', time: undefined } });
 
-	const selectedTests = await database.tests.find({
-		selector: { $or: [
-			{ id: { $in: Array.from(allTestsIds) } },
-			{ workspaceId: { $in: Array.from(testWorkspacesIds) } },
-		] }
-	}).exec();
-	if (selectedTests.some(test => test.isWaiting || test.isRunning)) {
-		throw new Error('Some selected tests are already waiting or running.');
-	}
-	if (Array.from(allTestsIds).some(id => !selectedTests.some(test => test.id === id))) {
-		throw new Error('Some selected tests no longer exist. Refresh the test tree.');
-	}
-	if (selectedTests.length === 0) return;
-	await database.testResults.findByIds(selectedTests.map(test => test.id)).remove();
+	await database.workspaces
+		.findByIds(workspaceIds)
+		.update({ $set: { isWaiting: true, time: undefined } });
 
-	if (allTestsIds.size > 0) {
-		await database.tests
-			.findByIds(Array.from(allTestsIds))
-			.update({ $set: { isWaiting: true, status: 'undetermined', time: undefined } });
-	}
+	await database.testResults
+		.findByIds(testIds)
+		.remove();
+};
 
-	if (testWorkspacesIds.size > 0) {
-		await database.tests
-			.find({ selector: { workspaceId: { $in: Array.from(testWorkspacesIds) } } })
-			.update({ $set: { isWaiting: true, status: 'undetermined', time: undefined } });
-	}
+export const handleTestRunAll = async (database: Database): Promise<void> => {
+	await database.tests.find()
+		.update({ $set: { isWaiting: true, status: 'empty', time: undefined } });
 
-	if (allWorkspacesIds.size > 0) {
-		await database.workspaces
-			.findByIds(Array.from(allWorkspacesIds))
-			.update({ $set: { isWaiting: true, time: undefined } });
+	await database.workspaces.find()
+		.update({ $set: { isWaiting: true, time: undefined } });
+
+	await database.testResults.find().remove();
+};
+
+export const handleTestRunFailedEvent = async (database: Database, event: TestRunFailedEvent): Promise<void> => {
+	const tests = await getRunTests(database, [event.payload.testRun]);
+
+	for (const test of tests) {
+		await handleTestUpdateEvent(database, {
+			type: 'test-update',
+			payload: { workspaceId: test.workspaceId, testId: test.testId, status: 'invalid', isRunning: false }
+		});
 	}
 };
 
@@ -302,42 +301,32 @@ export const storeTestTree = async (database: Database, testTree: TestTree, open
 };
 
 export const clearTestResults = async (database: Database): Promise<void> => {
-	const pending = await database.tests.findOne({
-		selector: { $or: [{ isWaiting: true }, { isRunning: true }] }
-	}).exec();
-	if (pending) throw new Error('Wait for running tests to finish before clearing results.');
 	await database.testResults.find().remove();
-	await database.tests.find().update({ $set: { status: 'undetermined', time: undefined } });
-	await database.workspaces.find().update({ $set: { status: 'undetermined', time: undefined } });
+	await database.tests.find().update({ $set: { status: 'empty', time: undefined } });
+	await database.workspaces.find().update({ $set: { status: 'empty', time: undefined } });
 };
 
-export const onTestUpdate = (database: Database, callback: (payload: TestTreeUpdate) => void): (() => void) => {
-	let active = true;
-	const testsSubscription = database.tests.update$.subscribe(changeEvent => {
+export const onTestUpdate = (database: Database, callback: (payload: TestTreeUpdate) => void): void => {
+	database.tests.update$.subscribe(changeEvent => {
 		callback({ type: 'test', test: toTest(changeEvent.documentData) });
 	});
 
-	const resultsSubscription = database.testResults.$.subscribe(async changeEvent => {
+	database.testResults.$.subscribe(async changeEvent => {
 		const testDocument = await database.tests.findOne({
 			selector: { id: changeEvent.documentData.id }
 		}).exec();
-
-		if (active && testDocument !== null) callback({ type: 'test', test: toTest(testDocument) });
+		if (testDocument !== null) {
+			callback({ type: 'test', test: toTest(testDocument) });
+		}
 	});
-	return () => {
-		active = false;
-		testsSubscription.unsubscribe();
-		resultsSubscription.unsubscribe();
-	};
 };
 
 export const onTestTreeUpdate = (
 	database: Database,
 	openState: Record<string, boolean>,
 	callback: (payload: TestTreeUpdate) => void
-): (() => void) => {
-	let active = true;
-	const subscription = database.workspaces.update$.subscribe(async changeEvent => {
+): void => {
+	database.workspaces.update$.subscribe(async changeEvent => {
 		const document = changeEvent.documentData;
 		const update: TestTreeWorkspaceUpdate = { id: document.id };
 
@@ -364,10 +353,6 @@ export const onTestTreeUpdate = (
 		update.nodes = createTestTree(document.id, openState, testDocuments.map(toTest));
 		update.isOpen = openState[document.id] ?? false;
 
-			if (active) callback({ type: 'workspace', workspace: update });
+		callback({ type: 'workspace', workspace: update });
 	});
-		return () => {
-			active = false;
-			subscription.unsubscribe();
-		};
 };

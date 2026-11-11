@@ -130,17 +130,6 @@
         }
       ]
     },
-    "configuration": {
-      "title": "Blaster Configuration",
-      "type": "object",
-      "properties": {
-        "blaster-extension.trace": {
-          "type": "boolean",
-          "default": false,
-          "description": "Include RPC trace messages and normal server exits in the Blaster output."
-        }
-      }
-    },
     "viewsContainers": {
       "activitybar": [
         {
@@ -176,7 +165,6 @@
   "dependencies": {
     "@vscode/codicons": "^0.0.45",
     "async": "^3.2.6",
-    "rxdb": "^17.4.0",
-    "vscode-jsonrpc": "^8.2.1"
+    "rxdb": "^17.4.0"
   }
 }

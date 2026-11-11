@@ -1,6 +1,6 @@
 // Test
 
-type RunStatus = "undetermined" | "valid" | "invalid";
+type RunStatus = "empty" | "undetermined" | "valid" | "invalid";
 
 type Test = {
   id: string;
@@ -31,7 +31,10 @@ type TestLocation = {
 
 type TestRun = {
   workspaceId: string;
-  testIds?: Array<string>;
+  tests?: {
+    uri: string;
+    ids?: Array<string>;
+  }[];
 };
 
 type Workspace = {
@@ -184,28 +187,9 @@ type WebviewToExtensionMessage =
   | { type: "test-tree-update-open-state"; payload: UpdateOpenStatePayload }
   | { type: "test-tree-open-folder" };
 
-// RPC Messages
-
-type RpcFetchParams = {
-  workspaces: Array<Workspace>;
-};
-
-type RpcFetchResponse = {
-  testTree: TestTree;
-};
-
-type RpcTestRun = {
-  workspacePath: string;
-  testIds?: Array<string>;
-};
-
-type RpcRunParams = {
-  testRuns: Array<RpcTestRun>;
-};
-
 // Test Event
 
-type TestEventType = "test-update" | "test-result" | "test-error";
+type TestEventType = "test-update" | "test-result" | "test-error" | "test-run-failed";
 
 type TestEvent = {
   type: TestEventType;
@@ -242,4 +226,27 @@ type TestErrorEvent = TestEvent & {
       trace?: string;
     };
   };
+};
+
+type TestRunFailedEvent = TestEvent & {
+  type: "test-run-failed";
+  payload: {
+    testRun: TestRun;
+    error: {
+      message: string;
+      trace?: string;
+    };
+  };
+};
+
+// Test Job
+
+type TestRunJobStatus = "waiting" | "running" | "success" | "failed";
+
+type TestRunJob = {
+  id: string;
+  status: TestRunJobStatus;
+  testRun: TestRun;
+  startedOn?: number;
+  finishedOn?: number;
 };

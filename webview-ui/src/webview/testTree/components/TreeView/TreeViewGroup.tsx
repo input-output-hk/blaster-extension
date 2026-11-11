@@ -23,7 +23,7 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
 }) => {
   const {
     workspaceId,
-    testIds,
+    tests,
     time,
     status,
     isWaiting,
@@ -41,7 +41,7 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
     event.preventDefault();
     event.stopPropagation();
     event.nativeEvent.stopImmediatePropagation();
-    onRunTest([{ workspaceId, testIds }]);
+    onRunTest([{ workspaceId, tests }]);
   };
 
   return (

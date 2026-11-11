@@ -2,6 +2,7 @@ import { VscodeTreeItem } from '@vscode-elements/react-elements';
 
 import TestStatusIcon from '../../../../components/TestStatusIcon';
 import { formatRunTime } from '../../../../utils/format';
+import { getTestRunLocation } from '../../../../../../src/utils/testRun';
 
 interface TreeViewTestProps {
   test: Test;
@@ -15,10 +16,10 @@ const TreeViewTest: React.FC<TreeViewTestProps> = ({
   onOpenTestResult
 }) => {
   const isRunnable = !test.isRunning && !test.isWaiting;
-  const hasResult = test.status !== 'undetermined';
-  const isFalsified = test.status === 'invalid';
-  const resultIcon = isFalsified ? 'codicon-graph-line' : 'codicon-output';
-  const resultTooltip = isFalsified ? 'View Results' : 'View Details';
+  const hasResult = test.status !== 'empty';
+  const isValid = test.status === 'valid';
+  const resultIcon = isValid ? 'codicon-output' : 'codicon-graph-line';
+  const resultTooltip = isValid ? 'View Details' : 'View Results';
 
   const handleOpenTestResult = (event: React.MouseEvent<HTMLButtonElement>): void => {
     event.preventDefault();
@@ -31,7 +32,8 @@ const TreeViewTest: React.FC<TreeViewTestProps> = ({
     event.preventDefault();
     event.stopPropagation();
     event.nativeEvent.stopImmediatePropagation();
-    onRunTest([{ workspaceId: test.workspaceId, testIds: [test.id] }]);
+    const { uri, id } = getTestRunLocation(test);
+    onRunTest([{ workspaceId: test.workspaceId, tests: [{ uri, ids: [id] }] }]);
   };
 
   return (

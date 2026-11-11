@@ -15,9 +15,7 @@ export default class TestResultView {
 
   public activate(context: BlasterContext) {
     this.context = context;
-    context.extension.subscriptions.push(
-      this.context.testStore.onTestTreeUpdate(this.onTestTreeUpdate.bind(this))
-    );
+    this.context.testStore.onTestTreeUpdate(this.onTestTreeUpdate.bind(this));
   }
 
   public open(workspaceId: string, testId: string): void {
