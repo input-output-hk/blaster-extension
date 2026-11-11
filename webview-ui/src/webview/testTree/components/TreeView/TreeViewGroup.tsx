@@ -10,6 +10,7 @@ interface TreeViewGroupProps {
   node: TestTreeGroupNode;
   isBusy: boolean;
   onShowTestLocation: (workspaceId: string, testId: string) => void;
+  onFetchTestTree: () => void;
   path: Array<string>;
   onRunTest: (testRuns: Array<TestRun>) => void;
   onOpenTestResult: (workspaceId: string, testId: string) => void;
@@ -20,6 +21,7 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
   node,
   isBusy,
   onShowTestLocation,
+  onFetchTestTree,
   path,
   onRunTest,
   onUpdateOpenTestTreeNode,
@@ -34,7 +36,8 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
     isRunning,
     isRunnable: canRun
   } = getGroupInfo(node);
-  const isRunnable = canRun && !isBusy;
+  const error = node.type === 'file' ? (node as TestTreeFileNode).error : undefined;
+  const isRunnable = canRun && !isBusy && error === undefined;
 
   const treeItemRef = useTreeItemState({
     onToggleCollapsed: (isCollapsed) => {
@@ -49,13 +52,23 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
     onRunTest([{ workspaceId, testIds }]);
   };
 
+  const handleRetryDiscovery = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.nativeEvent.stopImmediatePropagation();
+    onFetchTestTree();
+  };
+
   return (
     <VscodeTreeItem ref={treeItemRef} open={node.isOpen}>
-      <TestStatusIcon
-        isWaiting={isWaiting}
-        isRunning={isRunning}
-        status={status}
-      />
+      {error !== undefined
+        ? <i className="mr-0.5 codicon codicon-error text-[var(--vscode-errorForeground)]" />
+        : <TestStatusIcon
+            isWaiting={isWaiting}
+            isRunning={isRunning}
+            status={status}
+          />
+      }
       <span className="flex flex-row w-full items-center justify-between gap-0.5">
         <span
           className="flex-1 min-w-0 overflow-hidden whitespace-nowrap text-ellipsis"
@@ -64,12 +77,36 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
           title={node.name}
         >
           {node.name}
-          {time !== undefined && time > 0 && !isRunning && !isWaiting &&
+          {error !== undefined &&
+            <span
+              className="ml-1 text-[var(--vscode-errorForeground)]"
+              data-tooltip-id="tree-node-action"
+              data-tooltip-content={error}
+            >
+              Discovery Failed
+            </span>
+          }
+          {error === undefined && time !== undefined && time > 0 && !isRunning && !isWaiting &&
             <span className="ml-1 opacity-60">
               {formatRunTime(time)}
             </span>
           }
         </span>
+        {error !== undefined &&
+          <button
+            type="button"
+            className={`flex h-5 w-5 shrink-0 items-center justify-center border-0 bg-transparent p-0 ${
+              isBusy ? 'opacity-30 cursor-not-allowed' : 'opacity-60 hover:opacity-100 cursor-pointer'
+            }`}
+            disabled={isBusy}
+            aria-label="Retry Discovery"
+            onClickCapture={handleRetryDiscovery}
+            data-tooltip-id="tree-node-action"
+            data-tooltip-content="Retry Discovery"
+          >
+            <i className="codicon codicon-refresh" />
+          </button>
+        }
         <button
           type="button"
           className={`flex h-5 w-5 shrink-0 items-center justify-center border-0 bg-transparent p-0 ${
@@ -92,6 +129,7 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
             node={folderNode}
             isBusy={isBusy}
             onShowTestLocation={onShowTestLocation}
+            onFetchTestTree={onFetchTestTree}
             path={[...path, node.name]}
             onRunTest={onRunTest}
             onOpenTestResult={onOpenTestResult}

@@ -74,6 +74,13 @@ type TestTreeFolderNode = TestTreeGroupNode & {
 type TestTreeFileNode = TestTreeGroupNode & {
   type: "file";
   tests: GenericMap<Test>;
+  error?: string;
+};
+
+type DiscoveryFileError = {
+  workspaceId: string;
+  group: Array<string>;
+  message: string;
 };
 
 // Test Result
@@ -175,7 +182,7 @@ type UpdateOpenStatePayload = {
 type ExtensionToWebviewMessage =
   | { type: "test-tree"; payload: TestTreePayload }
   | { type: "test-operation"; payload: { state: TestOperationState } }
-  | { type: "test-tree-error"; payload: { message: string } }
+  | { type: "test-tree-error" }
   | { type: "test-tree-update"; payload: TestTreeUpdate }
   | { type: "test-result"; payload: TestResultPayload };
 

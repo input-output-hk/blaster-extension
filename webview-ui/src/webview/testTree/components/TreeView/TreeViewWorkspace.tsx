@@ -9,6 +9,7 @@ interface TreeViewWorkspaceProps {
   workspace: TestTreeWorkspaceNode;
   isBusy: boolean;
   onShowTestLocation: (workspaceId: string, testId: string) => void;
+  onFetchTestTree: () => void;
   onRunTest: (testRuns: Array<TestRun>) => void;
   onOpenTestResult: (workspaceId: string, testId: string) => void;
   onUpdateOpenTestTreeNode: (isOpen: boolean, workspaceId: string, group?: Array<string>) => void;
@@ -18,6 +19,7 @@ const TreeViewWorkspace: React.FC<TreeViewWorkspaceProps> = ({
   workspace,
   isBusy,
   onShowTestLocation,
+  onFetchTestTree,
   onRunTest,
   onOpenTestResult,
   onUpdateOpenTestTreeNode
@@ -81,6 +83,7 @@ const TreeViewWorkspace: React.FC<TreeViewWorkspaceProps> = ({
           path={[]}
           isBusy={isBusy}
           onShowTestLocation={onShowTestLocation}
+          onFetchTestTree={onFetchTestTree}
           onRunTest={onRunTest}
           onOpenTestResult={onOpenTestResult}
           onUpdateOpenTestTreeNode={onUpdateOpenTestTreeNode}

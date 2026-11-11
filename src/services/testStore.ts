@@ -4,7 +4,7 @@ import { access, readFile, realpath } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { queue } from 'async';
 
-import BlasterCLI, { CliError, type CheckResult, type CliLocation, type DiscoveryItem } from './blasterCLI';
+import BlasterCLI, { CliError, type CheckResult, type CliLocation, type DiscoveryError, type DiscoveryItem } from './blasterCLI';
 import Database from './database';
 import { createTestTree } from './database/methods';
 import sampleResult from './sampleResult';
@@ -33,6 +33,8 @@ export default class TestStore {
   private workspaces = new Map<string, Workspace>();
   private isTestTreeFetched: boolean = false;
   private testTreeOpenState: Record<string, boolean> = {};
+  private discoveryError: string | undefined;
+  private discoveryFileErrors: Array<DiscoveryFileError> = [];
 
   constructor() {
     this.database = new Database();
@@ -63,10 +65,11 @@ export default class TestStore {
     if (this.operationState !== 'idle') throw new Error('Wait for the current Blaster operation to finish.');
   }
 
-  private reportProblem(message: string): void {
+  private reportProblem(message: string, level: 'warning' | 'error' = 'warning'): void {
     this.context.outputChannel.appendLine(`> ${message}`);
     if (this.disposed) return;
-    void vscode.window.showWarningMessage(message, 'Show Output').then(action => {
+    const show = level === 'error' ? vscode.window.showErrorMessage : vscode.window.showWarningMessage;
+    void show(message, 'Show Output').then(action => {
       if (action) this.context.outputChannel.show(true);
     });
   }
@@ -76,7 +79,13 @@ export default class TestStore {
     this.requireIdle();
     this.controller = new AbortController();
     this.setOperation('discovering');
-    this.discovery = this.discover(this.controller.signal).finally(() => {
+    this.discovery = this.discover(this.controller.signal).then(tree => {
+      this.discoveryError = undefined;
+      return this.applyFileErrors(tree);
+    }, error => {
+      this.discoveryError = error instanceof Error ? error.message : String(error);
+      throw error;
+    }).finally(() => {
       this.discovery = undefined;
       this.controller = undefined;
       this.setOperation('idle');
@@ -91,6 +100,7 @@ export default class TestStore {
     const nextSites = new Map<string, Site>();
     const refreshed = new Set<string>();
     const problems: string[] = [];
+    const fileErrors: Array<DiscoveryFileError> = [];
     for (const folder of vscode.workspace.workspaceFolders ?? []) {
       if (folder.uri.scheme !== 'file') continue;
       const root = folder.uri.fsPath;
@@ -100,8 +110,13 @@ export default class TestStore {
       const workspace = { id: this.makeWorkspaceId(root), path: root };
       nextWorkspaces.set(workspace.id, workspace);
       try {
-        const { items, completion } = await this.blasterCLI.discover(root, signal);
+        const { items, errors, completion } = await this.blasterCLI.discover(root, signal);
         if (completion.interrupted || signal.aborted) throw new Error('Discovery was cancelled.');
+        const workspaceFileErrors = await this.toFileErrors(workspace, errors);
+        if (completion.exitCode !== 0 && items.length === 0 && workspaceFileErrors.length === 0) {
+          throw new Error(errors.map(error => error.message).join('\n') || `lean-blaster exited with code ${completion.exitCode}.`);
+        }
+        fileErrors.push(...workspaceFileErrors);
         const workspaceSites = await this.createSites(workspace, items);
         for (const site of workspaceSites) nextSites.set(`${workspace.id}:${site.test.id}`, site);
         tree.workspaces[workspace.id] = {
@@ -111,10 +126,16 @@ export default class TestStore {
         };
         this.testTreeOpenState[workspace.id] ??= true;
         refreshed.add(workspace.id);
-        if (completion.exitCode !== 0) problems.push(`Discovery of ${root} is incomplete. See Blaster Output for diagnostics.`);
+        if (workspaceFileErrors.length > 0) {
+          const files = Array.from(new Set(workspaceFileErrors.map(error => error.group.at(-1)))).join(', ');
+          problems.push(`Property Discovery Error: An error occurred in ${files}. View output for more details.`);
+        } else if (completion.exitCode !== 0) {
+          problems.push(`Discovery of ${root} is incomplete. See Blaster Output for diagnostics.`);
+        }
       } catch (error) {
         if (signal.aborted) throw error;
         problems.push(`${root}: ${error instanceof Error ? error.message : String(error)}`);
+        fileErrors.push(...this.discoveryFileErrors.filter(error => error.workspaceId === workspace.id));
         if (previous.workspaces[workspace.id]) {
           tree.workspaces[workspace.id] = previous.workspaces[workspace.id];
           for (const [key, site] of this.sites) {
@@ -131,9 +152,53 @@ export default class TestStore {
     });
     this.workspaces = nextWorkspaces;
     this.sites = nextSites;
+    this.discoveryFileErrors = fileErrors;
     this.isTestTreeFetched = true;
-    if (problems.length) this.reportProblem(problems.join('\n'));
+    if (problems.length) this.reportProblem(problems.join('\n'), 'error');
     return storedTree;
+  }
+
+  private async toFileErrors(workspace: Workspace, errors: Array<DiscoveryError>): Promise<Array<DiscoveryFileError>> {
+    const root = await realpath(workspace.path).catch(() => workspace.path);
+    return errors.flatMap(error => {
+      if (!error.file) return [];
+      const path = relative(root, resolve(root, error.file));
+      if (!path || isAbsolute(path) || path === '..' || path.startsWith(`..${sep}`)) return [];
+      return [{ workspaceId: workspace.id, group: path.split(sep), message: error.message }];
+    });
+  }
+
+  public getDiscoveryError(): string | undefined {
+    return this.discoveryError;
+  }
+
+  private applyFileErrors(testTree: TestTree): TestTree {
+    for (const workspace of Object.values(testTree.workspaces)) {
+      this.applyWorkspaceFileErrors(workspace.id, workspace.nodes);
+    }
+    return testTree;
+  }
+
+  private applyWorkspaceFileErrors(workspaceId: string, nodes: GenericMap<TestTreeGroupNode>): void {
+    for (const error of this.discoveryFileErrors) {
+      if (error.workspaceId !== workspaceId || error.group.length === 0) continue;
+      let currentNodes = nodes;
+      for (let index = 0; index < error.group.length; index++) {
+        const name = error.group[index];
+        const isLast = index === error.group.length - 1;
+        const isOpen = this.testTreeOpenState[[workspaceId, ...error.group.slice(0, index + 1)].join(':')] ?? false;
+        currentNodes[name] ??= isLast
+          ? { type: 'file', name, isOpen, tests: {} } as TestTreeFileNode
+          : { type: 'folder', name, isOpen, nodes: {} } as TestTreeFolderNode;
+        const node = currentNodes[name];
+        if (isLast) {
+          if (node.type === 'file') (node as TestTreeFileNode).error = error.message;
+        } else {
+          if (node.type !== 'folder') break;
+          currentNodes = (node as TestTreeFolderNode).nodes;
+        }
+      }
+    }
   }
 
   private async createSites(workspace: Workspace, items: DiscoveryItem[]): Promise<Site[]> {
@@ -175,7 +240,9 @@ export default class TestStore {
   }
 
   public async getTestTree(): Promise<TestTree> {
-    return this.isTestTreeFetched ? this.database.fetchTestTree(this.testTreeOpenState) : this.fetchTestTree();
+    return this.isTestTreeFetched
+      ? this.applyFileErrors(await this.database.fetchTestTree(this.testTreeOpenState))
+      : this.fetchTestTree();
   }
 
   public updateOpenTestTreeNode(isOpen: boolean, workspaceId: string, group?: Array<string>): void {
@@ -336,7 +403,7 @@ export default class TestStore {
 
   public async collapseAllTests(): Promise<TestTree> {
     this.collapseTestTree();
-    return this.database.fetchTestTree(this.testTreeOpenState);
+    return this.applyFileErrors(await this.database.fetchTestTree(this.testTreeOpenState));
   }
 
   public async getTestLocation(workspaceId: string, testId: string): Promise<TestLocation> {
@@ -351,7 +418,12 @@ export default class TestStore {
 
   public onTestTreeUpdate(callback: (payload: TestTreeUpdate) => void): vscode.Disposable {
     const unsubscribeTests = this.database.onTestUpdate(callback);
-    const unsubscribeTree = this.database.onTestTreeUpdate(this.testTreeOpenState, callback);
+    const unsubscribeTree = this.database.onTestTreeUpdate(this.testTreeOpenState, payload => {
+      if (payload.type === 'workspace' && payload.workspace.nodes) {
+        this.applyWorkspaceFileErrors(payload.workspace.id, payload.workspace.nodes);
+      }
+      callback(payload);
+    });
     const subscription = new vscode.Disposable(() => {
       unsubscribeTests();
       unsubscribeTree();

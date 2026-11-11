@@ -23,6 +23,7 @@ export type CheckResult = {
   counterexample: string[];
   reason: string | null;
 };
+export type DiscoveryError = { file?: string; message: string };
 type CliEvent = Record<string, unknown> & { schemaVersion: 1; event: string };
 export type CliCompletion = { exitCode: number; interrupted: boolean };
 
@@ -49,9 +50,17 @@ const isOptionalText = (value: unknown): boolean => value == null || typeof valu
 export default class BlasterCLI {
   constructor(private readonly log: (text: string) => void, private readonly trace: () => boolean) {}
 
-  public async discover(root: string, signal: AbortSignal): Promise<{ items: DiscoveryItem[]; completion: CliCompletion }> {
+  public async discover(root: string, signal: AbortSignal): Promise<{ items: DiscoveryItem[]; errors: DiscoveryError[]; completion: CliCompletion }> {
     const items: DiscoveryItem[] = [];
+    const errors: DiscoveryError[] = [];
     const completion = await this.execute('discover', root, root, signal, event => {
+      if (event.event === 'diagnostic' && isRecord(event.diagnostic) && event.diagnostic.severity === 'error') {
+        const message = String(event.diagnostic.message);
+        const file = isLocation(event.diagnostic.location)
+          ? event.diagnostic.location.file
+          : /^I couldn't inspect '(.+?)':/.exec(message)?.[1];
+        errors.push({ file, message });
+      }
       if (event.event !== 'discovery') return;
       const item = event.item;
       if (!isRecord(item) || !['command', 'tactic'].includes(String(item.kind)) ||
@@ -61,7 +70,7 @@ export default class BlasterCLI {
       }
       items.push(item as DiscoveryItem);
     });
-    return { items, completion };
+    return { items, errors, completion };
   }
 
   public check(file: string, root: string, signal: AbortSignal, onResult: (result: CheckResult) => void): Promise<CliCompletion> {

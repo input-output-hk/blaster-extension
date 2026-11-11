@@ -20,7 +20,6 @@ interface Props {
 const TestTreeView: React.FC<Props> = ({ vscode }) => {
   const [activeView, setActiveView] = useState<'loading' | 'empty-tree' | 'tree' | 'error'>('loading');
   const [testTree, setTestTree] = useState<TestTree | null>(null);
-  const [error, setError] = useState<string | undefined>();
   const [operationState, setOperationState] = useState<TestOperationState>('idle');
   const [hasWorkspaceFolders, setHasWorkspaceFolders] = useState(false);
 
@@ -36,10 +35,8 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
         setHasWorkspaceFolders(message.payload.hasWorkspaceFolders ?? Object.keys(message.payload.testTree.workspaces).length > 0);
         setTestTree(message.payload.testTree);
         setActiveView(hasTests ? 'tree' : 'empty-tree');
-        setError(undefined);
       }
       if (message.type === 'test-tree-error') {
-        setError(message.payload.message);
         setActiveView('error');
       }
       if (message.type === 'test-tree-update') {
@@ -109,10 +106,7 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
     <>
       {activeView === 'loading' && <LoadingView />}
       {activeView === 'error' &&
-        <ErrorView
-          message={error}
-          onFetchTestTree={onFetchTestTree}
-        />
+        <ErrorView onFetchTestTree={onFetchTestTree} />
       }
       {activeView === 'empty-tree' &&
         <EmptyView
@@ -128,6 +122,7 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
           onUpdateOpenTestTreeNode={onUpdateOpenTestTreeNode}
           onOpenTestResult={onOpenTestResult}
           onShowTestLocation={onShowTestLocation}
+          onFetchTestTree={onFetchTestTree}
         />
       }
     </>

@@ -75,8 +75,12 @@ export default class TestTreeView {
   }
 
   private getTestTree(): void {
+    if (this.context.testStore.getDiscoveryError() !== undefined) {
+      this.sendTestTreeErrorToWebview();
+      return;
+    }
     this.context.testStore.getTestTree().then(tree => this.sendTestTreeToWebview(tree))
-      .catch(error => this.reportError(error, true));
+      .catch(error => this.reportDiscoveryError(error));
   }
 
   private refreshTestTree(): void {
@@ -87,7 +91,7 @@ export default class TestTreeView {
     if (this.pendingFetch) return;
     this.pendingFetch = this.context.testStore.fetchTestTree().then((testTree: TestTree) => {
       this.sendTestTreeToWebview(testTree);
-    }).catch(error => this.reportError(error, true)).finally(() => {
+    }).catch(error => this.reportDiscoveryError(error)).finally(() => {
       this.pendingFetch = null;
     });
   }
@@ -121,15 +125,22 @@ export default class TestTreeView {
       .catch(error => this.reportError(error));
   }
 
-  private reportError(error: unknown, treeError = false): void {
+  private reportError(error: unknown): void {
     const message = error instanceof Error ? error.message : String(error);
     this.context.outputChannel.appendLine(`> ERROR: ${message}`);
     void vscode.window.showErrorMessage(message, 'Show Output').then(action => {
       if (action) this.context.outputChannel.show(true);
     });
-    if (treeError) {
-      void this.webview?.postMessage({ type: 'test-tree-error', payload: { message } } satisfies ExtensionToWebviewMessage);
-    }
+  }
+
+  private reportDiscoveryError(error: unknown): void {
+    const message = error instanceof Error ? error.message : String(error);
+    this.context.outputChannel.appendLine(`> ERROR: Property discovery failed: ${message}`);
+    this.sendTestTreeErrorToWebview();
+  }
+
+  private sendTestTreeErrorToWebview(): void {
+    void this.webview?.postMessage({ type: 'test-tree-error' } satisfies ExtensionToWebviewMessage);
   }
 
   private openTestResult(payload: OpenResultPayload): void {
