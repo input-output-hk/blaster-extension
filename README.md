@@ -56,8 +56,11 @@ toolchain and Blaster dependency must be compatible with the installed CLI.
 ## Result Limitations
 
 Status and elapsed time come from `lean-blaster`. A result matching the source's
-expected status (e.g. `(solve-result: 1)`) counts as valid; errors, skipped checks,
-and discovered sites that produce no result count as invalid.
+expected status (e.g. `(solve-result: 1)`) counts as valid. Errors, skipped checks,
+and sites with no result after a completed run show a red run error, not a
+falsified result. If the run fails (exit 2 or 4, a crash, or an interruption),
+received results are kept and the remaining tests return to `empty`. Each file
+with a run error is reported in the Blaster output, the status bar, and a notification.
 Unrun tests have the `empty` status (grey circle). Undetermined results use a
 purple (`#B180D7`) question icon and expose the details view. Multiple results
 from one invocation are combined using the worst status and summed elapsed time.
