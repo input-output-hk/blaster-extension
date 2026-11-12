@@ -94,11 +94,11 @@
       },
       {
         "command": "blaster-extension.clearAllTests",
-        "title": "Clear All Results"
+        "title": "Blaster: Clear All Results"
       },
       {
         "command": "blaster-extension.collapseAllTests",
-        "title": "Collapse All Properties"
+        "title": "Blaster: Collapse All Properties"
       }
     ],
     "menus": {
