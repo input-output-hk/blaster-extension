@@ -78,6 +78,17 @@ type TestTreeFileNode = TestTreeGroupNode & {
   tests: GenericMap<Test>;
 };
 
+type TestTreeFilter = {
+  text?: string;
+};
+
+type VisibleItem = TestTreeWorkspaceNode | TestTreeGroupNode | Test;
+
+type EditorFilesPayload = {
+  activeFile?: string;
+  openFiles: Array<string>;
+};
+
 // Test Result
 
 type TestResult = {
@@ -177,6 +188,7 @@ type ExtensionToWebviewMessage =
   | { type: "test-tree"; payload: TestTreePayload }
   | { type: "test-tree-error"; payload: { message: string } }
   | { type: "test-tree-update"; payload: TestTreeUpdate }
+  | { type: "editor-files"; payload: EditorFilesPayload }
   | { type: "test-result"; payload: TestResultPayload };
 
 type WebviewToExtensionMessage =

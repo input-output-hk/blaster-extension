@@ -9,6 +9,7 @@ import { formatRunTime } from '../../../../utils/format';
 interface TreeViewGroupProps {
   node: TestTreeGroupNode;
   path: Array<string>;
+  visible: Set<VisibleItem>;
   onRunTest: (testRuns: Array<TestRun>) => void;
   onOpenTestResult: (workspaceId: string, testId: string) => void;
   onUpdateOpenTestTreeNode: (isOpen: boolean, workspaceId: string, group?: Array<string>) => void;
@@ -17,6 +18,7 @@ interface TreeViewGroupProps {
 const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
   node,
   path,
+  visible,
   onRunTest,
   onUpdateOpenTestTreeNode,
   onOpenTestResult
@@ -43,6 +45,9 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
     event.nativeEvent.stopImmediatePropagation();
     onRunTest([{ workspaceId, tests }]);
   };
+
+  /** Returns whether the filter left this node or test visible. */
+  const isVisible = (item: TestTreeGroupNode | Test): boolean => visible.has(item);
 
   return (
     <VscodeTreeItem ref={treeItemRef} open={node.isOpen}>
@@ -78,11 +83,12 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
         </button>
       </span>
       {node.type === 'folder' &&
-        Object.values((node as TestTreeFolderNode).nodes).map(folderNode => (
+        Object.values((node as TestTreeFolderNode).nodes).filter(isVisible).map(folderNode => (
           <TreeViewGroup
             key={folderNode.name}
             node={folderNode}
             path={[...path, node.name]}
+            visible={visible}
             onRunTest={onRunTest}
             onOpenTestResult={onOpenTestResult}
             onUpdateOpenTestTreeNode={onUpdateOpenTestTreeNode}
@@ -90,7 +96,7 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
         ))
       }
       {node.type === 'file' &&
-        Object.values((node as TestTreeFileNode).tests).map(test => (
+        Object.values((node as TestTreeFileNode).tests).filter(isVisible).map(test => (
           <TreeViewTest
             key={test.id}
             test={test}

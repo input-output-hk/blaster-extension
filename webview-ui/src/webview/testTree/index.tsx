@@ -21,6 +21,7 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
   const [activeView, setActiveView] = useState<'loading' | 'empty-tree' | 'tree' | 'error'>('loading');
   const [testTree, setTestTree] = useState<TestTree | null>(null);
   const [error, setError] = useState<string | undefined>();
+  const [editorFiles, setEditorFiles] = useState<EditorFilesPayload>({ openFiles: [] });
 
   useEffect(() => {
     vscode.postMessage({ type: 'webview-ready' } as WebviewToExtensionMessage);
@@ -32,6 +33,9 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
         setTestTree(message.payload.testTree);
         setActiveView(hasTests ? 'tree' : 'empty-tree');
         setError(undefined);
+      }
+      if (message.type === 'editor-files') {
+        setEditorFiles(message.payload);
       }
       if (message.type === 'test-tree-error') {
         setError(message.payload.message);
@@ -111,6 +115,7 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
       {activeView === 'tree' && testTree !== null &&
         <TreeView
           testTree={testTree}
+          editorFiles={editorFiles}
           onRunTest={onRunTest}
           onUpdateOpenTestTreeNode={onUpdateOpenTestTreeNode}
           onOpenTestResult={onOpenTestResult}

@@ -24,7 +24,11 @@ export default class TestTreeView {
       vscode.commands.registerCommand('blaster-extension.runAllTests', this.runAllTests.bind(this)),
       vscode.commands.registerCommand('blaster-extension.clearAllTests', this.clearAllTests.bind(this)),
       vscode.commands.registerCommand('blaster-extension.collapseAllTests', this.collapseAllTests.bind(this)),
-      vscode.commands.registerCommand('blaster-extension.showOutput', this.showOutput.bind(this))
+      vscode.commands.registerCommand('blaster-extension.showOutput', this.showOutput.bind(this)),
+
+      vscode.window.onDidChangeActiveTextEditor(this.sendEditorFilesToWebview.bind(this)),
+      vscode.window.onDidChangeVisibleTextEditors(this.sendEditorFilesToWebview.bind(this)),
+      vscode.window.tabGroups.onDidChangeTabs(this.sendEditorFilesToWebview.bind(this))
     );
 
     this.context.testStore.onTestTreeUpdate(this.onTestTreeUpdate.bind(this));
@@ -47,6 +51,7 @@ export default class TestTreeView {
         switch (message.type) {
           case 'webview-ready':
             this.loadTestTree();
+            this.sendEditorFilesToWebview();
             break;
           case 'test-tree-fetch':
             this.fetchTestTree();
@@ -141,6 +146,23 @@ export default class TestTreeView {
     if (this.webview !== null) {
       this.webview.postMessage({ type: 'test-tree', payload: { testTree } } as ExtensionToWebviewMessage);
     }
+  }
+
+  /**
+   * Sends the active file and the files open in editor tabs, for the `@doc` and `@openedFiles` filter tags.
+   * When a non-text editor (e.g. a test result panel) is active, the first visible text editor counts as active.
+   */
+  private sendEditorFilesToWebview(): void {
+    if (this.webview === null) return;
+    const activeEditor = vscode.window.activeTextEditor ?? vscode.window.visibleTextEditors[0];
+    const openFiles: Array<string> = [];
+    for (const group of vscode.window.tabGroups.all) {
+      for (const tab of group.tabs) {
+        if (tab.input instanceof vscode.TabInputText) openFiles.push(tab.input.uri.fsPath);
+      }
+    }
+    const payload: EditorFilesPayload = { activeFile: activeEditor?.document.uri.fsPath, openFiles };
+    void this.webview.postMessage({ type: 'editor-files', payload } satisfies ExtensionToWebviewMessage);
   }
 
   private onTestTreeUpdate(payload: TestTreeUpdate): void {
