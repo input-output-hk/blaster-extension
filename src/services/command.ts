@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { createHash } from 'node:crypto';
-import { relative, resolve as resolvePath, sep } from 'node:path';
+import { isAbsolute, relative, resolve as resolvePath, sep } from 'node:path';
 import { queue } from 'async';
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
@@ -133,7 +133,7 @@ export default class Command {
     this.context = context;
   }
 
-  public async discover(): Promise<TestTree> {
+  public async discover(): Promise<{ testTree: TestTree; fileErrors: Array<DiscoveryFileError> }> {
     const workspaces = new Map(
       vscode.workspace.workspaceFolders?.map(folder => [
         this.makeWorkspaceId(folder.uri.fsPath),
@@ -146,11 +146,19 @@ export default class Command {
 
     const discoveredTests = new Map<string, Array<Test>>();
     const testTree: TestTree = { workspaces: {} };
+    const fileErrors: Array<DiscoveryFileError> = [];
 
     for (const workspace of workspaces.values()) {
       const tests: Array<Test> = [];
-      await this.exec(['discover', workspace.path, '--json'], workspace.path, event => {
-        if (event.event === 'diagnostic') this.logDiagnostic(event.diagnostic);
+      const errors: Array<{ file?: string; message: string }> = [];
+      const exitCode = await this.exec(['discover', workspace.path, '--json'], workspace.path, event => {
+        if (event.event === 'diagnostic') {
+          this.logDiagnostic(event.diagnostic);
+          const { severity, message, location } = event.diagnostic;
+          if (severity === 'error') {
+            errors.push({ file: location?.file ?? /^I couldn't inspect '(.+?)':/.exec(message)?.[1], message });
+          }
+        }
         if (event.event !== 'discovery') return;
 
         const { kind, name, invocationRange: { start, stop } } = event.item;
@@ -168,6 +176,19 @@ export default class Command {
         });
       });
 
+      const workspaceFileErrors = errors.flatMap(({ file, message }) => {
+        const relativePath = file === undefined ? '' : relative(workspace.path, resolvePath(workspace.path, file));
+        if (!relativePath || isAbsolute(relativePath) || relativePath === '..' || relativePath.startsWith(`..${sep}`)) {
+          return [];
+        }
+        return [{ workspaceId: workspace.id, group: relativePath.split(sep), message }];
+      });
+
+      if (exitCode !== 0 && tests.length === 0 && workspaceFileErrors.length === 0) {
+        throw new Error(errors.map(error => error.message).join('\n') || `lean-blaster discovery failed (exit ${exitCode}).`);
+      }
+
+      fileErrors.push(...workspaceFileErrors);
       discoveredTests.set(workspace.id, tests);
 
       const nodes: GenericMap<TestTreeFileNode> = {};
@@ -188,7 +209,7 @@ export default class Command {
 
     this.workspaces = workspaces;
     this.tests = discoveredTests;
-    return testTree;
+    return { testTree, fileErrors };
   }
 
   public prepareTestRuns(testRuns: Array<TestRun> = Array.from(this.workspaces.keys(), workspaceId => ({ workspaceId }))): Array<TestRun> {
