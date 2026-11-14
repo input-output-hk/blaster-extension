@@ -20,6 +20,7 @@ type CommandResult = {
   status: 'valid' | 'falsified' | 'undetermined' | 'error' | 'skipped';
   expectedStatus: 'falsified' | 'undetermined' | null;
   elapsedMs: number;
+  reason: string | null;
 };
 
 type CommandEvent =
@@ -60,10 +61,11 @@ const parseEvent = (line: string): CommandEvent | undefined => {
         && (result.status === 'valid' || result.status === 'falsified' || result.status === 'undetermined'
           || result.status === 'error' || result.status === 'skipped')
         && (result.expectedStatus == null || result.expectedStatus === 'falsified' || result.expectedStatus === 'undetermined')
-        && typeof result.elapsedMs === 'number' && Number.isFinite(result.elapsedMs) && result.elapsedMs >= 0) {
+        && typeof result.elapsedMs === 'number' && Number.isFinite(result.elapsedMs) && result.elapsedMs >= 0
+        && (result.reason == null || typeof result.reason === 'string')) {
         return { event: 'result', result: {
           property: result.property, location: result.location, status: result.status,
-          expectedStatus: result.expectedStatus ?? null, elapsedMs: result.elapsedMs
+          expectedStatus: result.expectedStatus ?? null, elapsedMs: result.elapsedMs, reason: result.reason ?? null
         } };
       }
       break;
@@ -90,10 +92,12 @@ const parseEvent = (line: string): CommandEvent | undefined => {
   throw new Error(`Invalid lean-blaster ${value.event} event.`);
 };
 
-const severity: Record<RunStatus, number> = { empty: 0, valid: 1, undetermined: 2, invalid: 3 };
+const severity: Record<RunStatus, number> = { empty: 0, valid: 1, undetermined: 2, error: 3, invalid: 4 };
 
 const toRunStatus = ({ status, expectedStatus }: CommandResult): RunStatus =>
-  status === 'valid' || status === expectedStatus ? 'valid' : status === 'undetermined' ? 'undetermined' : 'invalid';
+  status === 'valid' || status === expectedStatus ? 'valid'
+    : status === 'undetermined' ? 'undetermined'
+    : status === 'error' || status === 'skipped' ? 'error' : 'invalid';
 
 const toPosition = ({ line, column }: CommandLocation): TestRangePosition => ({ line: line - 1, character: column - 1 });
 
@@ -238,6 +242,7 @@ export default class Command {
   }
 
   public runTests(testRuns: Array<TestRun>): void {
+    this.context.statusBarItem.hide();
     for (const testRun of this.prepareTestRuns(testRuns)) {
       const id = this.makeTestRunId(testRun);
       this.queuedJobs.add(id);
@@ -254,7 +259,7 @@ export default class Command {
     const file = tests[0]?.location.path;
     if (workspace === undefined || file === undefined) {
       const message = 'Queued tests no longer exist. Refresh the test tree.';
-      this.context.outputChannel.appendLine(`> ERROR: ${message}`);
+      this.reportRunError(message);
       this.emit({ type: 'test-run-failed', payload: { testRun: job.testRun, error: { message } } });
       return;
     }
@@ -264,11 +269,17 @@ export default class Command {
     }
 
     const results: Map<string, { status: RunStatus; time: number }> = new Map();
-    let message: string;
+    let reason: string | undefined;
+    let diagnostic: string | undefined;
+    let exitCode: number | undefined;
+    let failure: string | undefined;
 
     try {
-      const exitCode = await this.exec(['check', file, '--solver-timeout', '1s', '--json'], workspace.path, event => {
-        if (event.event === 'diagnostic') this.logDiagnostic(event.diagnostic);
+      exitCode = await this.exec(['check', file, '--solver-timeout', '1s', '--json'], workspace.path, event => {
+        if (event.event === 'diagnostic') {
+          this.logDiagnostic(event.diagnostic);
+          if (event.diagnostic.severity === 'error') diagnostic ??= event.diagnostic.message;
+        }
         if (event.event !== 'result') return;
 
         const { result } = event;
@@ -285,6 +296,7 @@ export default class Command {
         // A site can report several results (e.g. `<;> blaster`): the worst status wins
         const previous = results.get(test.id) ?? { status: 'empty', time: 0 };
         const status = toRunStatus(result);
+        if (status === 'error') reason ??= result.reason ?? undefined;
         const current = {
           status: severity[status] > severity[previous.status] ? status : previous.status,
           time: previous.time + result.elapsedMs
@@ -296,25 +308,52 @@ export default class Command {
           this.emit({ type: 'test-result', payload: { workspaceId, testId: test.id, result: sampleResult } });
         }
       });
-      message = `No result reported by lean-blaster (exit ${exitCode})`;
     } catch (error) {
-      message = error instanceof Error ? error.message : String(error);
-      this.context.outputChannel.appendLine(`> ERROR ${file}: ${message}`);
-      vscode.window.showErrorMessage(`Blaster: ${message}`);
+      failure = error instanceof Error ? error.message : String(error);
     }
 
     for (const [testId, result] of results) {
       this.emit({ type: 'test-update', payload: { workspaceId, testId, ...result, isRunning: false } });
     }
 
-    const missingTestIds = tests.filter(test => !results.has(test.id)).map(test => getTestRunLocation(test).id);
-    if (missingTestIds.length > 0) {
-      this.context.outputChannel.appendLine(`> ERROR ${file}: ${message}`);
+    // Exit 2 or 4 means the run itself failed, so tests without a result return to empty
+    const isComplete = failure === undefined && exitCode !== 2 && exitCode !== 4;
+    const missingTests = tests.filter(test => !results.has(test.id));
+    if (isComplete) {
+      for (const test of missingTests) {
+        this.emit({ type: 'test-update', payload: { workspaceId, testId: test.id, status: 'error', isRunning: false } });
+      }
+    } else if (missingTests.length > 0) {
       this.emit({
         type: 'test-run-failed',
-        payload: { testRun: { workspaceId, tests: [{ uri: getTestRunLocation(tests[0]).uri, ids: missingTestIds }] }, error: { message } }
+        payload: {
+          testRun: { workspaceId, tests: [{ uri: getTestRunLocation(tests[0]).uri, ids: missingTests.map(test => getTestRunLocation(test).id) }] },
+          error: { message: failure ?? `lean-blaster exited with code ${exitCode}` }
+        }
       });
     }
+
+    const hasError = missingTests.length > 0 || Array.from(results.values()).some(result => result.status === 'error');
+    if (!isComplete || hasError) {
+      const message = reason ?? diagnostic ?? failure
+        ?? (isComplete ? 'No result reported by lean-blaster' : `lean-blaster exited with code ${exitCode}`);
+      this.reportRunError(`${relative(workspace.path, file)}: ${message}`);
+    }
+  }
+
+  private reportRunError(message: string): void {
+    const { outputChannel, statusBarItem } = this.context;
+    outputChannel.appendLine(`> ERROR ${message}`);
+
+    statusBarItem.text = '$(error) Proof Execution Failed';
+    statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
+    statusBarItem.show();
+
+    // The notification shows the first line; the output keeps the full message
+    const brief = message.split('\n')[0];
+    void vscode.window.showErrorMessage(`Proof Execution Failed: ${brief}`, 'Show output').then(selection => {
+      if (selection === 'Show output') outputChannel.show(true);
+    });
   }
 
   public onTestEvent(callback: (event: TestEvent) => void): void {

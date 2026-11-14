@@ -18,6 +18,8 @@ const mapTestStatusToClassName = (status: RunStatus, isWaiting: boolean, isRunni
       return 'codicon-pass text-[var(--vscode-testing-iconPassed)]';
     case 'invalid':
       return 'codicon-error text-[var(--vscode-testing-iconFailed)]';
+    case 'error':
+      return 'codicon-info text-[var(--vscode-testing-iconErrored)]';
   }
 };
 

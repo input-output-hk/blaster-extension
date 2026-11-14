@@ -1,5 +1,5 @@
 import { basename } from 'node:path';
-import { matchesTestRun } from '../../utils/testRun';
+import { getGroupStatus, matchesTestRun } from '../../utils/testRun';
 
 import type { Database, TestDocument, TestDocumentData, WorkspaceDocument } from './collections';
 
@@ -63,9 +63,7 @@ const updateWorkspace = async (database: Database, workspaceId: string): Promise
 
 	const isWaiting = tests.some(test => test.isWaiting);
 	const isRunning = tests.some(test => test.isRunning) || (workspaceDocument.isRunning && isWaiting);
-	const status: RunStatus = tests.some(test => test.status === 'invalid') ? 'invalid'
-		: tests.length > 0 && tests.every(test => test.status === 'valid') ? 'valid'
-		: tests.some(test => test.status === 'undetermined') ? 'undetermined' : 'empty';
+	const status = getGroupStatus(tests);
 
 	await workspaceDocument.update({
 		$set: {
@@ -132,7 +130,7 @@ export const handleTestErrorEvent = async (database: Database, event: TestErrorE
 
 	await handleTestUpdateEvent(database, {
 		type: 'test-update',
-		payload: { workspaceId, testId, status: 'invalid', isRunning: false }
+		payload: { workspaceId, testId, status: 'error', isRunning: false }
 	});
 };
 
@@ -178,7 +176,7 @@ export const handleTestRunFailedEvent = async (database: Database, event: TestRu
 	for (const test of tests) {
 		await handleTestUpdateEvent(database, {
 			type: 'test-update',
-			payload: { workspaceId: test.workspaceId, testId: test.testId, status: 'invalid', isRunning: false }
+			payload: { workspaceId: test.workspaceId, testId: test.testId, status: 'empty', isRunning: false }
 		});
 	}
 };

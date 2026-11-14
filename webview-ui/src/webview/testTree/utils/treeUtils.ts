@@ -1,5 +1,5 @@
 
-import { getTestRunLocation } from '../../../../../src/utils/testRun';
+import { getGroupStatus, getTestRunLocation } from '../../../../../src/utils/testRun';
 
 export type TestGroupInfo = {
   workspaceId: string;
@@ -34,9 +34,7 @@ export const getGroupInfo = (node: TestTreeGroupNode): TestGroupInfo => {
   const isRunning = tests.some(test => test.isRunning);
   const isWaiting = tests.some(test => test.isWaiting) && !isRunning;
 
-  const status: RunStatus = tests.some(test => test.status === 'invalid') ? 'invalid'
-    : tests.length > 0 && tests.every(test => test.status === 'valid') ? 'valid'
-    : tests.some(test => test.status === 'undetermined') ? 'undetermined' : 'empty';
+  const status = getGroupStatus(tests);
 
   const time = isWaiting || isRunning ? undefined
     : tests.reduce((sum, test) => sum + (test.time ?? 0), 0);

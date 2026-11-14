@@ -1,6 +1,6 @@
 // Test
 
-type RunStatus = "empty" | "undetermined" | "valid" | "invalid";
+type RunStatus = "empty" | "undetermined" | "valid" | "invalid" | "error";
 
 type Test = {
   id: string;
