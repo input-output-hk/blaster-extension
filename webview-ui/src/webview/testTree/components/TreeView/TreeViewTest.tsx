@@ -17,9 +17,10 @@ const TreeViewTest: React.FC<TreeViewTestProps> = ({
 }) => {
   const isRunnable = !test.isRunning && !test.isWaiting;
   const hasResult = test.status !== 'empty';
-  const isValid = test.status === 'valid';
-  const resultIcon = isValid ? 'codicon-output' : 'codicon-graph-line';
-  const resultTooltip = isValid ? 'View Details' : 'View Results';
+  const isError = test.status === 'error';
+  const showsDetails = test.status === 'valid' || isError;
+  const resultIcon = showsDetails ? 'codicon-output' : 'codicon-graph-line';
+  const resultTooltip = showsDetails ? 'View Details' : 'View Results';
 
   const handleOpenTestResult = (event: React.MouseEvent<HTMLButtonElement>): void => {
     event.preventDefault();
@@ -50,10 +51,12 @@ const TreeViewTest: React.FC<TreeViewTestProps> = ({
           data-node-name={test.name}
         >
           {test.name}
-          {test.time !== undefined && test.time > 0 &&
-            <span className="ml-1 opacity-60">
-              {formatRunTime(test.time)}
-            </span>
+          {isError ?
+            <span className="ml-1 text-[var(--vscode-testing-iconErrored)]">Error</span> :
+            test.time !== undefined && test.time > 0 &&
+              <span className="ml-1 opacity-60">
+                {formatRunTime(test.time)}
+              </span>
           }
         </span>
 

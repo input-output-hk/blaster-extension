@@ -20,7 +20,6 @@ interface Props {
 const TestTreeView: React.FC<Props> = ({ vscode }) => {
   const [activeView, setActiveView] = useState<'loading' | 'empty-tree' | 'tree' | 'error'>('loading');
   const [testTree, setTestTree] = useState<TestTree | null>(null);
-  const [error, setError] = useState<string | undefined>();
   const [editorFiles, setEditorFiles] = useState<EditorFilesPayload>({ openFiles: [] });
 
   useEffect(() => {
@@ -32,13 +31,11 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
         const hasTests = Object.values(message.payload.testTree.workspaces).length > 0;
         setTestTree(message.payload.testTree);
         setActiveView(hasTests ? 'tree' : 'empty-tree');
-        setError(undefined);
       }
       if (message.type === 'editor-files') {
         setEditorFiles(message.payload);
       }
       if (message.type === 'test-tree-error') {
-        setError(message.payload.message);
         setActiveView('error');
       }
       if (message.type === 'test-tree-update') {
@@ -101,10 +98,7 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
     <>
       {activeView === 'loading' && <LoadingView />}
       {activeView === 'error' &&
-        <ErrorView
-          message={error}
-          onFetchTestTree={onFetchTestTree}
-        />
+        <ErrorView onFetchTestTree={onFetchTestTree} />
       }
       {activeView === 'empty-tree' &&
         <EmptyView
@@ -117,6 +111,7 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
           testTree={testTree}
           editorFiles={editorFiles}
           onRunTest={onRunTest}
+          onFetchTestTree={onFetchTestTree}
           onUpdateOpenTestTreeNode={onUpdateOpenTestTreeNode}
           onOpenTestResult={onOpenTestResult}
         />

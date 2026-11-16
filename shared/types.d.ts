@@ -1,6 +1,6 @@
 // Test
 
-type RunStatus = "empty" | "undetermined" | "valid" | "invalid";
+type RunStatus = "empty" | "undetermined" | "valid" | "invalid" | "error";
 
 type Test = {
   id: string;
@@ -76,6 +76,13 @@ type TestTreeFolderNode = TestTreeGroupNode & {
 type TestTreeFileNode = TestTreeGroupNode & {
   type: "file";
   tests: GenericMap<Test>;
+  error?: string;
+};
+
+type DiscoveryFileError = {
+  workspaceId: string;
+  group: Array<string>;
+  message: string;
 };
 
 type TestTreeFilter = {
@@ -186,7 +193,7 @@ type UpdateOpenStatePayload = {
 
 type ExtensionToWebviewMessage =
   | { type: "test-tree"; payload: TestTreePayload }
-  | { type: "test-tree-error"; payload: { message: string } }
+  | { type: "test-tree-error" }
   | { type: "test-tree-update"; payload: TestTreeUpdate }
   | { type: "editor-files"; payload: EditorFilesPayload }
   | { type: "test-result"; payload: TestResultPayload };

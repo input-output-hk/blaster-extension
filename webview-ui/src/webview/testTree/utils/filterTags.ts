@@ -12,8 +12,11 @@ export type FilterTag = {
   matches: (test: Test, context: FilterContext) => boolean;
 };
 
-/** Keeps failed tests. Falsified is the umbrella for any failure until the extension reports errors separately. */
-const isFailed = (test: Test): boolean => test.status === 'invalid';
+/** Keeps falsified tests. */
+const isFalsified = (test: Test): boolean => test.status === 'invalid';
+
+/** Keeps tests whose check errored or was skipped. */
+const isError = (test: Test): boolean => test.status === 'error';
 
 /** Keeps tests the solver couldn't decide. */
 const isUndetermined = (test: Test): boolean => test.status === 'undetermined';
@@ -29,9 +32,9 @@ const isInOpenFile = (test: Test, context: FilterContext): boolean => context.op
 
 /** The only tags the filter knows. */
 export const FILTER_TAGS: Array<FilterTag> = [
-  { name: 'falsified', description: 'Show Falsified Properties', group: 'status', matches: isFailed },
+  { name: 'falsified', description: 'Show Falsified Properties', group: 'status', matches: isFalsified },
   { name: 'undetermined', description: 'Show Undetermined Properties', group: 'status', matches: isUndetermined },
-  { name: 'error', description: 'Show Properties with Errors', group: 'status', matches: isFailed },
+  { name: 'error', description: 'Show Properties with Errors', group: 'status', matches: isError },
   { name: 'executed', description: 'Show Executed Properties', matches: isExecuted },
   { name: 'doc', description: 'Show Properties in the Active File', matches: isInActiveFile },
   { name: 'openedFiles', description: 'Show Properties in Open Files', matches: isInOpenFile },

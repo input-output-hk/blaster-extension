@@ -22,6 +22,7 @@ const mintValid = makeTest('1', 'mint succeeds', 'valid', MINT_FILE);
 const mintInvalid = makeTest('2', 'mint twice', 'invalid', MINT_FILE);
 const burnPending = makeTest('3', 'burn token', 'undetermined', BURN_FILE);
 const burnEmpty = makeTest('4', 'burn later', 'empty', BURN_FILE);
+const burnBroken = makeTest('5', 'burn broken', 'error', BURN_FILE);
 
 const mintFile: TestTreeFileNode = {
   type: 'file',
@@ -41,7 +42,15 @@ const burnFile: TestTreeFileNode = {
   type: 'file',
   name: 'Burn.lean',
   isOpen: false,
-  tests: { '3': burnPending, '4': burnEmpty },
+  tests: { '3': burnPending, '4': burnEmpty, '5': burnBroken },
+};
+
+const swapFile: TestTreeFileNode = {
+  type: 'file',
+  name: 'Swap.lean',
+  isOpen: false,
+  tests: {},
+  error: 'unknown identifier',
 };
 
 const workspace: TestTreeWorkspaceNode = {
@@ -51,7 +60,7 @@ const workspace: TestTreeWorkspaceNode = {
   isWaiting: false,
   isRunning: false,
   isOpen: false,
-  nodes: { Mint: mintFolder, 'Burn.lean': burnFile },
+  nodes: { Mint: mintFolder, 'Burn.lean': burnFile, 'Swap.lean': swapFile },
 };
 
 const testTree: TestTree = { workspaces: { ws: workspace } };
@@ -59,7 +68,7 @@ const testTree: TestTree = { workspaces: { ws: workspace } };
 const context: FilterContext = { activeFile: BURN_FILE, openFiles: new Set([MINT_FILE]) };
 
 const items: Record<string, VisibleItem> = {
-  workspace, mintFolder, mintFile, mintValid, mintInvalid, burnFile, burnPending, burnEmpty,
+  workspace, mintFolder, mintFile, mintValid, mintInvalid, burnFile, burnPending, burnEmpty, burnBroken, swapFile,
 };
 
 /** Returns the fixture names of the items left visible by the filter text, in fixture order. */
@@ -114,7 +123,7 @@ describe('getVisibleItems', () => {
     });
 
     test('a word in a file name keeps the whole file', () => {
-      expect(getVisibleNames('burn.lean')).toEqual(['workspace', 'burnFile', 'burnPending', 'burnEmpty']);
+      expect(getVisibleNames('burn.lean')).toEqual(['workspace', 'burnFile', 'burnPending', 'burnEmpty', 'burnBroken']);
     });
 
     test('a word in the workspace folder name keeps everything', () => {
@@ -137,7 +146,7 @@ describe('getVisibleItems', () => {
     });
 
     test('removes a matching folder with its subtree', () => {
-      expect(getVisibleNames('!mint')).toEqual(['workspace', 'burnFile', 'burnPending', 'burnEmpty']);
+      expect(getVisibleNames('!mint')).toEqual(['workspace', 'burnFile', 'burnPending', 'burnEmpty', 'burnBroken', 'swapFile']);
     });
 
     test('! wins over a plain word', () => {
@@ -150,8 +159,8 @@ describe('getVisibleItems', () => {
       expect(getVisibleNames('@falsified')).toEqual([...mintBranch, 'mintInvalid']);
     });
 
-    test('@error keeps invalid tests too, for now', () => {
-      expect(getVisibleNames('@error')).toEqual(getVisibleNames('@falsified'));
+    test('@error keeps errored tests and files whose discovery failed', () => {
+      expect(getVisibleNames('@error')).toEqual(['workspace', 'burnFile', 'burnBroken', 'swapFile']);
     });
 
     test('@undetermined keeps undetermined tests', () => {
@@ -159,11 +168,11 @@ describe('getVisibleItems', () => {
     });
 
     test('@executed keeps every test that has a result', () => {
-      expect(getVisibleNames('@executed')).toEqual(everything.filter(name => name !== 'burnEmpty'));
+      expect(getVisibleNames('@executed')).toEqual(everything.filter(name => name !== 'burnEmpty' && name !== 'swapFile'));
     });
 
     test('@doc keeps tests in the active file', () => {
-      expect(getVisibleNames('@doc')).toEqual(['workspace', 'burnFile', 'burnPending', 'burnEmpty']);
+      expect(getVisibleNames('@doc')).toEqual(['workspace', 'burnFile', 'burnPending', 'burnEmpty', 'burnBroken']);
     });
 
     test('@doc keeps nothing without an active file', () => {
@@ -177,7 +186,7 @@ describe('getVisibleItems', () => {
 
     test('tags combine with AND', () => {
       expect(getVisibleNames('@falsified @undetermined')).toEqual([]);
-      expect(getVisibleNames('@doc @executed')).toEqual(['workspace', 'burnFile', 'burnPending']);
+      expect(getVisibleNames('@doc @executed')).toEqual(['workspace', 'burnFile', 'burnPending', 'burnBroken']);
     });
 
     test('a repeated tag acts like one', () => {
@@ -193,6 +202,22 @@ describe('getVisibleItems', () => {
   describe('combined', () => {
     test('text, exclusion and tags together', () => {
       expect(getVisibleNames('mint !succeeds @openedFiles @falsified')).toEqual([...mintBranch, 'mintInvalid']);
+    });
+  });
+
+  describe('files whose discovery failed', () => {
+    test('stay visible with no tests', () => {
+      expect(getVisibleNames('swap')).toEqual(['workspace', 'swapFile']);
+    });
+
+    test('are hidden by a word they miss or an exclusion', () => {
+      expect(getVisibleNames('burn')).not.toContain('swapFile');
+      expect(getVisibleNames('!swap')).not.toContain('swapFile');
+    });
+
+    test('are hidden by any tag other than @error', () => {
+      expect(getVisibleNames('@falsified')).not.toContain('swapFile');
+      expect(getVisibleNames('@error @doc')).not.toContain('swapFile');
     });
   });
 

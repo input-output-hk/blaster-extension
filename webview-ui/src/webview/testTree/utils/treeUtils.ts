@@ -1,5 +1,5 @@
 
-import { getTestRunLocation } from '../../../../../src/utils/testRun';
+import { getGroupStatus, getTestRunLocation } from '../../../../../src/utils/testRun';
 import { getKnownTags, type FilterContext, type FilterTag } from './filterTags';
 
 export type TestGroupInfo = {
@@ -35,9 +35,7 @@ export const getGroupInfo = (node: TestTreeGroupNode): TestGroupInfo => {
   const isRunning = tests.some(test => test.isRunning);
   const isWaiting = tests.some(test => test.isWaiting) && !isRunning;
 
-  const status: RunStatus = tests.some(test => test.status === 'invalid') ? 'invalid'
-    : tests.length > 0 && tests.every(test => test.status === 'valid') ? 'valid'
-    : tests.some(test => test.status === 'undetermined') ? 'undetermined' : 'empty';
+  const status = getGroupStatus(tests);
 
   const time = isWaiting || isRunning ? undefined
     : tests.reduce((sum, test) => sum + (test.time ?? 0), 0);
@@ -95,6 +93,12 @@ const getItemChildren = (item: VisibleItem): Array<VisibleItem> => {
   return [];
 };
 
+/** Tells whether the item is a file whose discovery failed. It has no tests but is still shown, like a test. */
+const isFailedFile = (item: VisibleItem): boolean => 'tests' in item && (item as TestTreeFileNode).error !== undefined;
+
+/** Tells whether the tag is `@error`, the only tag a failed file matches. */
+const isErrorTag = (tag: FilterTag): boolean => tag.name === 'error';
+
 /** Returns the keywords that the name doesn't contain (case-insensitive). Keywords must already be lowercase. */
 const getUnmatchedKeywords = (name: string, keywords: Array<string>): Array<string> => {
   const lowerName = name.toLowerCase();
@@ -126,9 +130,10 @@ const removeNegative = (item: VisibleItem, negativeKeywords: Array<string>, visi
   for (const child of getItemChildren(item)) removeNegative(child, negativeKeywords, visible);
 };
 
-/** Step 2: removes every test whose path (ancestor names and its own name) misses any positive keyword. */
+/** Step 2: removes every test (or failed file) whose path (ancestor names and its own name) misses any positive keyword. */
 const keepPositive = (item: VisibleItem, positiveKeywords: Array<string>, visible: Set<VisibleItem>): void => {
   const unmatched = getUnmatchedKeywords(getItemName(item), positiveKeywords);
+  if (isFailedFile(item) && unmatched.length > 0) visible.delete(item);
   if (isTest(item)) {
     if (unmatched.length > 0) visible.delete(item);
     return;
@@ -136,8 +141,9 @@ const keepPositive = (item: VisibleItem, positiveKeywords: Array<string>, visibl
   for (const child of getItemChildren(item)) keepPositive(child, unmatched, visible);
 };
 
-/** Step 3: removes every test that doesn't match all known tags. */
+/** Step 3: removes every test that doesn't match all known tags. A failed file only stays for `@error` alone. */
 const keepTags = (item: VisibleItem, tags: Array<FilterTag>, context: FilterContext, visible: Set<VisibleItem>): void => {
+  if (isFailedFile(item) && !tags.every(isErrorTag)) visible.delete(item);
   if (isTest(item)) {
     for (const tag of tags) {
       if (!tag.matches(item, context)) visible.delete(item);
@@ -147,11 +153,11 @@ const keepTags = (item: VisibleItem, tags: Array<FilterTag>, context: FilterCont
   for (const child of getItemChildren(item)) keepTags(child, tags, context, visible);
 };
 
-/** Removes every workspace, folder or file with no visible test left. Returns whether the item stays. */
+/** Removes every workspace, folder or file with no visible test left (a failed file counts as one). Returns whether the item stays. */
 const pruneEmpty = (item: VisibleItem, visible: Set<VisibleItem>): boolean => {
   if (!visible.has(item)) return false;
   if (isTest(item)) return true;
-  let hasVisibleChild = false;
+  let hasVisibleChild = isFailedFile(item);
   for (const child of getItemChildren(item)) {
     if (pruneEmpty(child, visible)) hasVisibleChild = true;
   }

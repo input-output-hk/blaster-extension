@@ -14,3 +14,13 @@ export const matchesTestRun = (
     selection.uri === uri && (selection.ids === undefined || selection.ids.includes(id))
   );
 };
+
+// A group with a run error still shows as valid when its other tests are valid
+export const getGroupStatus = (tests: Array<Pick<Test, 'status'>>): RunStatus => {
+  const has = (status: RunStatus) => tests.some(test => test.status === status);
+  if (has('invalid')) return 'invalid';
+  if (has('valid') && tests.every(test => test.status === 'valid' || test.status === 'error')) return 'valid';
+  if (has('undetermined')) return 'undetermined';
+  if (has('error')) return 'error';
+  return 'empty';
+};

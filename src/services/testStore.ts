@@ -15,6 +15,8 @@ export default class TestStore {
 
   private isTestTreeFetched: boolean = false;
   private testTreeOpenState: Record<string, boolean> = {};
+  private discoveryError: string | undefined;
+  private discoveryFileErrors: Array<DiscoveryFileError> = [];
 
   constructor(context: vscode.ExtensionContext) {
     this.command = new Command();
@@ -65,15 +67,61 @@ export default class TestStore {
   }
 
   public async fetchTestTree(): Promise<TestTree> {
-    const discoveredTestTree = await this.command.discover();
-    const storedTestTree = await this.database.storeTestTree(discoveredTestTree, this.testTreeOpenState);
-    this.isTestTreeFetched = true;
-    return storedTestTree;
+    try {
+      const { testTree, fileErrors } = await this.command.discover();
+      const storedTestTree = await this.database.storeTestTree(testTree, this.testTreeOpenState);
+      this.discoveryError = undefined;
+      this.discoveryFileErrors = fileErrors;
+      this.isTestTreeFetched = true;
+      return this.applyFileErrors(storedTestTree);
+    } catch (error) {
+      this.discoveryError = error instanceof Error ? error.message : String(error);
+      throw error;
+    }
   }
 
   public async getTestTree(): Promise<TestTree | undefined> {
     if (!this.isTestTreeFetched) return;
-    return await this.database.fetchTestTree(this.testTreeOpenState);
+    return this.applyFileErrors(await this.database.fetchTestTree(this.testTreeOpenState));
+  }
+
+  public getDiscoveryError(): string | undefined {
+    return this.discoveryError;
+  }
+
+  public getDiscoveryFileErrors(): ReadonlyArray<DiscoveryFileError> {
+    return this.discoveryFileErrors;
+  }
+
+  private applyFileErrors(testTree: TestTree): TestTree {
+    for (const workspace of Object.values(testTree.workspaces)) {
+      this.applyWorkspaceFileErrors(workspace.id, workspace.nodes);
+    }
+    return testTree;
+  }
+
+  private applyWorkspaceFileErrors(workspaceId: string, nodes: GenericMap<TestTreeGroupNode>): void {
+    for (const { workspaceId: errorWorkspaceId, group, message } of this.discoveryFileErrors) {
+      if (errorWorkspaceId !== workspaceId) continue;
+      let currentNodes = nodes;
+      for (let index = 0; index < group.length; index++) {
+        const name = group[index];
+        const isFile = index === group.length - 1;
+        const isOpen = this.testTreeOpenState[[workspaceId, ...group.slice(0, index + 1)].join(':')] ?? false;
+        const node = currentNodes[name] ??= isFile
+          ? { type: 'file', name, isOpen, tests: {} } as TestTreeFileNode
+          : { type: 'folder', name, isOpen, nodes: {} } as TestTreeFolderNode;
+        if (isFile) {
+          if (node.type === 'file') {
+            (node as TestTreeFileNode).error = message;
+          }
+        } else if (node.type === 'folder') {
+          currentNodes = (node as TestTreeFolderNode).nodes;
+        } else {
+          break;
+        }
+      }
+    }
   }
 
   public updateOpenTestTreeNode(isOpen: boolean, workspaceId: string, group?: Array<string>): void {
@@ -110,6 +158,11 @@ export default class TestStore {
 
   public onTestTreeUpdate(callback: (payload: TestTreeUpdate) => void): void {
     this.database.onTestUpdate(callback);
-    this.database.onTestTreeUpdate(this.testTreeOpenState, callback);
+    this.database.onTestTreeUpdate(this.testTreeOpenState, payload => {
+      if (payload.type === 'workspace' && payload.workspace.nodes) {
+        this.applyWorkspaceFileErrors(payload.workspace.id, payload.workspace.nodes);
+      }
+      callback(payload);
+    });
   }
 }
