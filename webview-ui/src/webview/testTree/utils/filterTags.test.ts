@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { getKnownTags, getTagQuery, getTagSuggestions, insertTag, type FilterTag } from './filterTags';
+import { getKnownTags, getTagQuery, getTagSuggestions, hasMenuTag, insertTag, toggleTag, type FilterTag } from './filterTags';
 
 /** Returns the name of a tag. */
 const getTagName = (tag: FilterTag): string => tag.name;
@@ -75,5 +75,44 @@ describe('insertTag', () => {
 
   test('adds a space at the end of the text', () => {
     expect(insertTag('foo @op', 7, 'openedFiles')).toEqual({ text: 'foo @openedFiles ', cursor: 17 });
+  });
+});
+
+describe('toggleTag', () => {
+  test('adds the tag', () => {
+    expect(toggleTag('', 'falsified')).toBe('@falsified');
+    expect(toggleTag('mint', 'falsified')).toBe('mint @falsified');
+  });
+
+  test('removes an active tag, ignoring case', () => {
+    expect(toggleTag('mint @falsified', 'falsified')).toBe('mint');
+    expect(toggleTag('@FALSIFIED mint', 'falsified')).toBe('mint');
+  });
+
+  test('replaces the other menu tag', () => {
+    expect(toggleTag('@falsified mint', 'undetermined')).toBe('mint @undetermined');
+    expect(toggleTag('@undetermined', 'error')).toBe('@error');
+    expect(toggleTag('@falsified @undetermined', 'error')).toBe('@error');
+  });
+
+  test('keeps non-menu tags, words and exclusions', () => {
+    expect(toggleTag('@doc @executed !slow', 'falsified')).toBe('@doc @executed !slow @falsified');
+  });
+
+  test('keeps a camelCase tag when toggling another', () => {
+    expect(toggleTag('@openedFiles', 'error')).toBe('@openedFiles @error');
+  });
+});
+
+describe('hasMenuTag', () => {
+  test('is true for a menu tag', () => {
+    expect(hasMenuTag(['falsified'])).toBe(true);
+    expect(hasMenuTag(['doc', 'error'])).toBe(true);
+  });
+
+  test('is false for other tags, partial tags or none', () => {
+    expect(hasMenuTag(['executed', 'doc', 'openedfiles'])).toBe(false);
+    expect(hasMenuTag(['falsi'])).toBe(false);
+    expect(hasMenuTag([])).toBe(false);
   });
 });

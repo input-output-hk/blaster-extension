@@ -3,9 +3,12 @@ export type FilterContext = {
   openFiles: Set<string>;
 };
 
+type FilterTagGroup = 'status';
+
 export type FilterTag = {
   name: string;
   description: string;
+  group?: FilterTagGroup;
   matches: (test: Test, context: FilterContext) => boolean;
 };
 
@@ -26,9 +29,9 @@ const isInOpenFile = (test: Test, context: FilterContext): boolean => context.op
 
 /** The only tags the filter knows. */
 export const FILTER_TAGS: Array<FilterTag> = [
-  { name: 'falsified', description: 'Show Falsified Properties', matches: isFailed },
-  { name: 'undetermined', description: 'Show Undetermined Properties', matches: isUndetermined },
-  { name: 'error', description: 'Show Properties with Errors', matches: isFailed },
+  { name: 'falsified', description: 'Show Falsified Properties', group: 'status', matches: isFailed },
+  { name: 'undetermined', description: 'Show Undetermined Properties', group: 'status', matches: isUndetermined },
+  { name: 'error', description: 'Show Properties with Errors', group: 'status', matches: isFailed },
   { name: 'executed', description: 'Show Executed Properties', matches: isExecuted },
   { name: 'doc', description: 'Show Properties in the Active File', matches: isInActiveFile },
   { name: 'openedFiles', description: 'Show Properties in Open Files', matches: isInOpenFile },
@@ -79,4 +82,39 @@ export const insertTag = (text: string, cursor: number, tagName: string): { text
   const after = text.slice(cursor);
   const separator = /^\s/.test(after) ? '' : ' ';
   return { text: before + separator + after, cursor: before.length + 1 };
+};
+
+/** Tells whether the tag is one of the filter menu items (it has a group). */
+const isMenuTag = (tag: FilterTag): boolean => tag.group !== undefined;
+
+/** Tells whether a filter menu tag is among the parsed (lowercase) tag keywords, so the filter button shows as active. */
+export const hasMenuTag = (tagKeywords: Array<string>): boolean => getKnownTags(tagKeywords).some(isMenuTag);
+
+/** Returns a predicate that finds the tag with the given name, ignoring case. */
+const isTagNamed = (tagName: string) => (tag: FilterTag): boolean => tag.name.toLowerCase() === tagName.toLowerCase();
+
+/** Returns a predicate that checks whether a word is the given tag, ignoring case. */
+const isWordForTag = (tagName: string) => (word: string): boolean => word.toLowerCase() === '@' + tagName.toLowerCase();
+
+/** Returns a predicate that finds the tag the word stands for, ignoring case. */
+const isTagForWord = (word: string) => (tag: FilterTag): boolean => word.toLowerCase() === '@' + tag.name.toLowerCase();
+
+/**
+ * Adds the tag to the text, or removes it if it's already there. Adding a tag removes the other tags of its group,
+ * so the filter menu stays single-select. Typed text is never changed otherwise.
+ * @example toggleTag('@falsified mint', 'undetermined') // 'mint @undetermined'
+ */
+export const toggleTag = (text: string, tagName: string): string => {
+  const tag = FILTER_TAGS.find(isTagNamed(tagName));
+  const words = text.split(/\s+/);
+  const isActive = words.some(isWordForTag(tagName));
+  const kept: Array<string> = [];
+  for (const word of words) {
+    const wordTag = FILTER_TAGS.find(isTagForWord(word));
+    const isSameTag = wordTag !== undefined && wordTag === tag;
+    const isSameGroup = !isActive && wordTag?.group !== undefined && wordTag.group === tag?.group;
+    if (word !== '' && !isSameTag && !isSameGroup) kept.push(word);
+  }
+  if (!isActive) kept.push('@' + tagName);
+  return kept.join(' ');
 };
