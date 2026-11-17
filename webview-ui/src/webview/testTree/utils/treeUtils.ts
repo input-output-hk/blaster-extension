@@ -3,7 +3,6 @@ import { getGroupStatus, getTestRunLocation } from '../../../../../src/utils/tes
 import { getKnownTags, type FilterContext, type FilterTag } from './filterTags';
 
 export type TestGroupInfo = {
-  workspaceId: string;
   tests: NonNullable<TestRun['tests']>;
   time?: number;
   status: RunStatus;
@@ -12,7 +11,7 @@ export type TestGroupInfo = {
   isRunnable: boolean;
 };
 
-const getGroupTests = (group: TestTreeGroupNode): Array<Test> => {
+export const getGroupTests = (group: TestTreeGroupNode): Array<Test> => {
   const tests: Array<Test> = [];
   if (group.type === 'folder') {
     tests.push(...Object.values((group as TestTreeFolderNode).nodes).flatMap(getGroupTests));
@@ -41,7 +40,6 @@ export const getGroupInfo = (node: TestTreeGroupNode): TestGroupInfo => {
     : tests.reduce((sum, test) => sum + (test.time ?? 0), 0);
 
   return {
-    workspaceId: tests[0]?.workspaceId ?? '',
     tests: Array.from(selections, ([uri, ids]) => ({ uri, ids })),
     isRunnable: tests.length > 0 && !isWaiting && !isRunning,
     isWaiting,

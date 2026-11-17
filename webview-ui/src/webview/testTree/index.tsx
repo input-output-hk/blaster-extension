@@ -4,6 +4,7 @@ import LoadingView from './components/LoadingView';
 import EmptyView from './components/EmptyView';
 import ErrorView from './components/ErrorView';
 import TreeView from './components/TreeView';
+import HelperText from './components/HelperText';
 
 import {
   updateTest,
@@ -21,10 +22,9 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
   const [activeView, setActiveView] = useState<'loading' | 'empty-tree' | 'tree' | 'error'>('loading');
   const [testTree, setTestTree] = useState<TestTree | null>(null);
   const [editorFiles, setEditorFiles] = useState<EditorFilesPayload>({ openFiles: [] });
+  const [actionState, setActionState] = useState<TestTreeActionState>({ isBusy: false });
 
   useEffect(() => {
-    vscode.postMessage({ type: 'webview-ready' } as WebviewToExtensionMessage);
-
     const messageHandler = (event: MessageEvent) => {
       const message = event.data as ExtensionToWebviewMessage;
       if (message.type === 'test-tree') {
@@ -49,15 +49,21 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
           }
         });
       }
+      if (message.type === 'test-tree-action-state') {
+        setActionState(message.payload);
+        if (message.payload.currentAction?.type === 'fetch') {
+          setActiveView(view => view === 'error' ? 'loading' : view);
+        }
+      }
     };
 
     window.addEventListener('message', messageHandler);
+    vscode.postMessage({ type: 'webview-ready' } as WebviewToExtensionMessage);
     
     return () => window.removeEventListener('message', messageHandler);
   }, [vscode]);
 
   const onFetchTestTree = () => {
-    setActiveView('loading');
     vscode.postMessage({ type: 'test-tree-fetch' } as WebviewToExtensionMessage)
   };
 
@@ -95,28 +101,31 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
   };
 
   return (
-    <>
-      {activeView === 'loading' && <LoadingView />}
-      {activeView === 'error' &&
-        <ErrorView onFetchTestTree={onFetchTestTree} />
-      }
-      {activeView === 'empty-tree' &&
-        <EmptyView
-          message={testTree && Object.keys(testTree.workspaces).length > 0 ? 'empty-tree' : 'empty-workspaces'}
-          onOpenFolder={onOpenFolder}
-        />
-      }
-      {activeView === 'tree' && testTree !== null &&
-        <TreeView
-          testTree={testTree}
-          editorFiles={editorFiles}
-          onRunTest={onRunTest}
-          onFetchTestTree={onFetchTestTree}
-          onUpdateOpenTestTreeNode={onUpdateOpenTestTreeNode}
-          onOpenTestResult={onOpenTestResult}
-        />
-      }
-    </>
+    <div className="flex h-full flex-col">
+      <HelperText testTree={testTree} actionState={actionState} />
+      <div className="min-h-0 flex-1">
+        {activeView === 'loading' && <LoadingView />}
+        {activeView === 'error' &&
+          <ErrorView onFetchTestTree={onFetchTestTree} />
+        }
+        {activeView === 'empty-tree' &&
+          <EmptyView
+            message={testTree && Object.keys(testTree.workspaces).length > 0 ? 'empty-tree' : 'empty-workspaces'}
+            onOpenFolder={onOpenFolder}
+          />
+        }
+        {activeView === 'tree' && testTree !== null &&
+          <TreeView
+            testTree={testTree}
+            editorFiles={editorFiles}
+            onRunTest={onRunTest}
+            onFetchTestTree={onFetchTestTree}
+            onUpdateOpenTestTreeNode={onUpdateOpenTestTreeNode}
+            onOpenTestResult={onOpenTestResult}
+          />
+        }
+      </div>
+    </div>
   )
 };
 

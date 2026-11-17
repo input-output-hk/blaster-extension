@@ -42,13 +42,25 @@ Compilation builds the extension host into `out/` and React webviews into `build
 Open this extension project in VS Code and launch its Extension Development Host
 with F5. In that window, open a prepared Lean project and select the Blaster view.
 
-`npm test` checks the UI request shape, file/position selection, whole-file
-execution, and scoped failure handling without requiring Lean.
+`npm test` checks action ordering, cancellation, result persistence, toolbar state,
+helper text, and tree expansion (including error-only folders) without requiring Lean.
 
 Use **Blaster: Refresh Test Tree** to discover properties. Run individual tests,
 files, folders, workspaces, or **Blaster: Run All Tests**. Opening a test result
 shows its latest state; **Blaster: Clear All Results** clears completed runs.
-Expansion state is retained during discovery in the current extension session.
+Expansion state is retained during discovery in the current extension session,
+including folders containing only discovery errors.
+
+Discovery, validation runs, and clearing results share a single action queue.
+While work is pending, **Blaster: Stop All Tests** replaces the toolbar's run and
+refresh buttons. It kills the active CLI process and its children, discards queued
+actions, and returns unfinished properties to idle without deleting received results.
+Tree expansion and result viewing remain available while jobs run.
+
+The helper text shows the current action, the number of valid properties out of
+all discovered properties, and elapsed wall-clock time for the latest validation
+run. Completed runs show a success or error icon; clearing results resets the
+helper to **No results yet.**
 
 The CLI prepares missing or stale project imports with Lake. The project's Lean
 toolchain and Blaster dependency must be compatible with the installed CLI.
@@ -58,7 +70,11 @@ toolchain and Blaster dependency must be compatible with the installed CLI.
 Status and elapsed time come from `lean-blaster`. A result matching the source's
 expected status (e.g. `(solve-result: 1)`) counts as valid. Errors, skipped checks,
 and sites with no result after a completed run show a red run error, not a
-falsified result. If the run fails (exit 2 or 4, a crash, or an interruption),
+falsified result. A Lean `unsolved goals` error marks the Blaster sites in that
+declaration as `invalid`, even if the solver returned `undetermined`: the proof
+failed, but this does not mean a counterexample was found. Undetermined results
+without an associated incomplete-proof error keep their status.
+If the run fails (exit 2 or 4, a crash, or an interruption),
 received results are kept and the remaining tests return to `empty`. Each file
 with a run error is reported in the Blaster output, the status bar, and a notification.
 Unrun tests have the `empty` status (grey circle). Undetermined results use a

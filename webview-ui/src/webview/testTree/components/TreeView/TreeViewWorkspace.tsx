@@ -78,6 +78,7 @@ const TreeViewWorkspace: React.FC<TreeViewWorkspaceProps> = ({
         <TreeViewGroup
           key={node.name}
           node={node}
+          workspaceId={workspace.id}
           path={[]}
           visible={visible}
           onRunTest={onRunTest}

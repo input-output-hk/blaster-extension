@@ -157,6 +157,21 @@ type TestTreePayload = {
   testTree: TestTree;
 };
 
+type TestActionType = 'fetch' | 'run' | 'clear';
+
+type TestTreeActionState = {
+  isBusy: boolean;
+  currentAction?: {
+    type: TestActionType;
+    startedAt: number;
+    isCancelling: boolean;
+  };
+  run?: {
+    startedAt: number;
+    finishedAt?: number
+  };
+};
+
 type TestTreeUpdate =
 | { type: 'test', test: Test }
 | { type: 'workspace', workspace: TestTreeWorkspaceUpdate };
@@ -196,6 +211,7 @@ type ExtensionToWebviewMessage =
   | { type: "test-tree-error" }
   | { type: "test-tree-update"; payload: TestTreeUpdate }
   | { type: "editor-files"; payload: EditorFilesPayload }
+  | { type: "test-tree-action-state"; payload: TestTreeActionState }
   | { type: "test-result"; payload: TestResultPayload };
 
 type WebviewToExtensionMessage =
@@ -256,16 +272,4 @@ type TestRunFailedEvent = TestEvent & {
       trace?: string;
     };
   };
-};
-
-// Test Job
-
-type TestRunJobStatus = "waiting" | "running" | "success" | "failed";
-
-type TestRunJob = {
-  id: string;
-  status: TestRunJobStatus;
-  testRun: TestRun;
-  startedOn?: number;
-  finishedOn?: number;
 };

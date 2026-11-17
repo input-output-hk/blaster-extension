@@ -10,6 +10,7 @@ import {
   fetchTestTree,
   storeTestTree,
   clearTestResults,
+  stopTests,
   onTestUpdate,
   onTestTreeUpdate,
   handleTestRun,
@@ -60,6 +61,10 @@ export default class Database {
 
   public async clearTestResults(): Promise<void> {
     return await clearTestResults(this.database!);
+  }
+
+  public async stopTests(): Promise<void> {
+    return await stopTests(this.database!);
   }
 
   public async handleTestRun(testRuns: Array<TestRun>): Promise<void> {

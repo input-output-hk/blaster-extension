@@ -22,16 +22,19 @@ export default class TestTreeView {
 
       vscode.commands.registerCommand('blaster-extension.refreshTestTree', this.refreshTestTree.bind(this)),
       vscode.commands.registerCommand('blaster-extension.runAllTests', this.runAllTests.bind(this)),
+      vscode.commands.registerCommand('blaster-extension.stopAllTests', this.stopAllTests.bind(this)),
       vscode.commands.registerCommand('blaster-extension.clearAllTests', this.clearAllTests.bind(this)),
       vscode.commands.registerCommand('blaster-extension.collapseAllTests', this.collapseAllTests.bind(this)),
       vscode.commands.registerCommand('blaster-extension.showOutput', this.showOutput.bind(this)),
 
       vscode.window.onDidChangeActiveTextEditor(this.sendEditorFilesToWebview.bind(this)),
       vscode.window.onDidChangeVisibleTextEditors(this.sendEditorFilesToWebview.bind(this)),
-      vscode.window.tabGroups.onDidChangeTabs(this.sendEditorFilesToWebview.bind(this))
+      vscode.window.tabGroups.onDidChangeTabs(this.sendEditorFilesToWebview.bind(this)),
+      context.testStore.onActionStateUpdate(this.onActionStateUpdate.bind(this))
     );
 
     this.context.testStore.onTestTreeUpdate(this.onTestTreeUpdate.bind(this));
+    this.onActionStateUpdate(this.context.testStore.getActionState());
   }
 
   public refreshTestTree(): void {
@@ -50,6 +53,7 @@ export default class TestTreeView {
       (message: WebviewToExtensionMessage) => {
         switch (message.type) {
           case 'webview-ready':
+            this.onActionStateUpdate(this.context.testStore.getActionState());
             this.loadTestTree();
             this.sendEditorFilesToWebview();
             break;
@@ -110,7 +114,17 @@ export default class TestTreeView {
     this.pendingFetch = this.context.testStore.fetchTestTree().then((testTree: TestTree) => {
       this.sendTestTreeToWebview(testTree);
       this.reportDiscoveryFileErrors();
-    }).catch(error => this.reportDiscoveryError(error)).finally(() => {
+    }).catch(async error => {
+      if (error instanceof vscode.CancellationError) {
+        if (this.context.testStore.getDiscoveryError() !== undefined) {
+          this.sendTestTreeErrorToWebview();
+        } else {
+          this.sendTestTreeToWebview(await this.context.testStore.getTestTree() ?? { workspaces: {} });
+        }
+      } else {
+        this.reportDiscoveryError(error);
+      }
+    }).catch(error => this.reportError(error, true)).finally(() => {
       this.pendingFetch = null;
     });
   }
@@ -121,6 +135,10 @@ export default class TestTreeView {
 
   private runAllTests(): void {
     this.context.testStore.runAllTests().catch(error => this.reportError(error));
+  }
+
+  private stopAllTests(): void {
+    this.context.testStore.stopAll();
   }
 
   private showOutput(): void {
@@ -139,6 +157,7 @@ export default class TestTreeView {
   }
 
   private reportError(error: unknown, treeError = false): void {
+    if (error instanceof vscode.CancellationError) return;
     const message = error instanceof Error ? error.message : String(error);
     this.context.outputChannel.appendLine(`> ERROR: ${message}`);
     void vscode.window.showErrorMessage(message);
@@ -172,7 +191,7 @@ export default class TestTreeView {
 
   private sendTestTreeToWebview(testTree: TestTree): void {
     if (this.webview !== null) {
-      this.webview.postMessage({ type: 'test-tree', payload: { testTree } } as ExtensionToWebviewMessage);
+      this.webview.postMessage({ type: 'test-tree', payload: { testTree } } satisfies ExtensionToWebviewMessage);
     }
   }
 
@@ -195,7 +214,13 @@ export default class TestTreeView {
 
   private onTestTreeUpdate(payload: TestTreeUpdate): void {
     if (this.webview !== null) {
-      this.webview.postMessage({ type: 'test-tree-update', payload } as ExtensionToWebviewMessage);
+      this.webview.postMessage({ type: 'test-tree-update', payload } satisfies ExtensionToWebviewMessage);
     }
+  }
+
+  private onActionStateUpdate(payload: TestTreeActionState): void {
+    void vscode.commands.executeCommand('setContext', 'blaster.testTreeBusy', payload.isBusy)
+      .then(undefined, error => this.reportError(error));
+    void this.webview?.postMessage({ type: 'test-tree-action-state', payload } satisfies ExtensionToWebviewMessage);
   }
 }

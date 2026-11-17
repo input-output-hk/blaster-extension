@@ -88,6 +88,12 @@
         "icon": "$(run-all)"
       },
       {
+        "command": "blaster-extension.stopAllTests",
+        "title": "Blaster: Stop All Tests",
+        "icon": "$(stop-circle)",
+        "enablement": "blaster.testTreeBusy"
+      },
+      {
         "command": "blaster-extension.showOutput",
         "title": "Blaster: Show Output",
         "icon": "$(terminal)"
@@ -105,12 +111,17 @@
       "view/title": [
         {
           "command": "blaster-extension.refreshTestTree",
-          "when": "view == blaster-test-tree",
+          "when": "view == blaster-test-tree && !blaster.testTreeBusy",
           "group": "navigation@1"
         },
         {
           "command": "blaster-extension.runAllTests",
-          "when": "view == blaster-test-tree",
+          "when": "view == blaster-test-tree && !blaster.testTreeBusy",
+          "group": "navigation@2"
+        },
+        {
+          "command": "blaster-extension.stopAllTests",
+          "when": "view == blaster-test-tree && blaster.testTreeBusy",
           "group": "navigation@2"
         },
         {
@@ -151,6 +162,7 @@
     }
   },
   "scripts": {
+    "test": "npm run compile:extension && node --test tests/*.test.cjs",
     "vscode:prepublish": "npm run compile",
     "compile": "npm run compile:extension && npm run compile:webview",
     "compile:extension": "tsc -p ./",

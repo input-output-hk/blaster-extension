@@ -18,7 +18,7 @@ const TreeViewTest: React.FC<TreeViewTestProps> = ({
   const isRunnable = !test.isRunning && !test.isWaiting;
   const hasResult = test.status !== 'empty';
   const isError = test.status === 'error';
-  const showsDetails = test.status === 'valid' || isError;
+  const showsDetails = test.status === 'valid' || test.status === 'undetermined' || isError;
   const resultIcon = showsDetails ? 'codicon-output' : 'codicon-graph-line';
   const resultTooltip = showsDetails ? 'View Details' : 'View Results';
 

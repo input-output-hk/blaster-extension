@@ -1,18 +1,16 @@
 import * as vscode from 'vscode';
 import { createHash } from 'node:crypto';
 import { isAbsolute, relative, resolve as resolvePath, sep } from 'node:path';
-import { queue } from 'async';
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 
 import sampleResult from '../utils/sampleResult';
 import { getTestRunLocation } from '../utils/testRun';
 import { BlasterContext } from '../extension';
 
-import type { ChildProcess } from 'node:child_process';
-import type { QueueObject } from 'async';
-
 type CommandLocation = { file: string; line: number; column: number };
+type CommandRange = { start: CommandLocation; stop: CommandLocation };
+type DiscoveredTest = Test & { bodyRange: TestRange };
 
 type CommandResult = {
   property: string;
@@ -24,7 +22,7 @@ type CommandResult = {
 };
 
 type CommandEvent =
-  | { event: 'discovery'; item: { kind: 'command' | 'tactic'; name: string | null; invocationRange: { start: CommandLocation; stop: CommandLocation } } }
+  | { event: 'discovery'; item: { kind: 'command' | 'tactic'; name: string | null; invocationRange: CommandRange; bodyRange: CommandRange } }
   | { event: 'result'; result: CommandResult }
   | { event: 'diagnostic'; diagnostic: { severity: string; message: string; location: CommandLocation | null } }
   | { event: 'complete'; exitCode: number; interrupted?: boolean };
@@ -47,10 +45,12 @@ const parseEvent = (line: string): CommandEvent | undefined => {
       const item = value.item;
       if (isRecord(item) && (item.kind === 'command' || item.kind === 'tactic')
         && (item.name === null || typeof item.name === 'string') && isRecord(item.invocationRange)
-        && isLocation(item.invocationRange.start) && isLocation(item.invocationRange.stop)) {
+        && isLocation(item.invocationRange.start) && isLocation(item.invocationRange.stop)
+        && isRecord(item.bodyRange) && isLocation(item.bodyRange.start) && isLocation(item.bodyRange.stop)) {
         return { event: 'discovery', item: {
           kind: item.kind, name: item.name,
-          invocationRange: { start: item.invocationRange.start, stop: item.invocationRange.stop }
+          invocationRange: { start: item.invocationRange.start, stop: item.invocationRange.stop },
+          bodyRange: { start: item.bodyRange.start, stop: item.bodyRange.stop }
         } };
       }
       break;
@@ -106,21 +106,8 @@ const compare = (a: TestRangePosition, b: TestRangePosition): number => a.line -
 export default class Command {
   private context: BlasterContext = {} as BlasterContext;
   private workspaces: Map<string, Workspace> = new Map();
-  private tests: Map<string, Array<Test>> = new Map();
-  private queuedJobs: Set<string> = new Set();
-  private children: Set<ChildProcess> = new Set();
+  private tests: Map<string, Array<DiscoveredTest>> = new Map();
   private emit: (event: TestEvent) => void = () => {};
-  private testRunQueue: QueueObject<TestRunJob>;
-
-  constructor() {
-    this.testRunQueue = queue<TestRunJob>(async job => {
-      try {
-        await this.handleTestJob(job);
-      } finally {
-        this.queuedJobs.delete(job.id);
-      }
-    }, 1);
-  }
 
   private makeWorkspaceId(workspacePath: string): string {
     return createHash('sha256').update(workspacePath).digest('hex').slice(0, 8);
@@ -137,7 +124,7 @@ export default class Command {
     this.context = context;
   }
 
-  public async discover(): Promise<{ testTree: TestTree; fileErrors: Array<DiscoveryFileError> }> {
+  public async discover(signal: AbortSignal): Promise<{ testTree: TestTree; fileErrors: Array<DiscoveryFileError> }> {
     const workspaces = new Map(
       vscode.workspace.workspaceFolders?.map(folder => [
         this.makeWorkspaceId(folder.uri.fsPath),
@@ -148,12 +135,12 @@ export default class Command {
       ]) || []
     );
 
-    const discoveredTests = new Map<string, Array<Test>>();
+    const discoveredTests = new Map<string, Array<DiscoveredTest>>();
     const testTree: TestTree = { workspaces: {} };
     const fileErrors: Array<DiscoveryFileError> = [];
 
     for (const workspace of workspaces.values()) {
-      const tests: Array<Test> = [];
+      const tests: Array<DiscoveredTest> = [];
       const errors: Array<{ file?: string; message: string }> = [];
       const exitCode = await this.exec(['discover', workspace.path, '--json'], workspace.path, event => {
         if (event.event === 'diagnostic') {
@@ -165,7 +152,7 @@ export default class Command {
         }
         if (event.event !== 'discovery') return;
 
-        const { kind, name, invocationRange: { start, stop } } = event.item;
+        const { kind, name, invocationRange: { start, stop }, bodyRange } = event.item;
         const file = resolvePath(workspace.path, start.file);
         const relativePath = relative(workspace.path, file);
         tests.push({
@@ -173,12 +160,13 @@ export default class Command {
           name: name?.split('.').pop() ?? `${kind === 'command' ? '#blaster' : 'example'} (line ${start.line})`,
           group: relativePath.split(sep),
           location: { path: file, range: { start: toPosition(start), end: toPosition(stop) } },
+          bodyRange: { start: toPosition(bodyRange.start), end: toPosition(bodyRange.stop) },
           status: 'empty',
           isWaiting: false,
           isRunning: false,
           workspaceId: workspace.id
         });
-      });
+      }, signal);
 
       const workspaceFileErrors = errors.flatMap(({ file, message }) => {
         const relativePath = file === undefined ? '' : relative(workspace.path, resolvePath(workspace.path, file));
@@ -235,23 +223,22 @@ export default class Command {
         // The CLI checks the whole file even when individual positions are selected.
         const testRun: TestRun = { workspaceId, tests: [{ uri }] };
         const id = this.makeTestRunId(testRun);
-        if (!this.queuedJobs.has(id)) runs.set(id, testRun);
+        runs.set(id, testRun);
       }
     }
     return Array.from(runs.values());
   }
 
-  public runTests(testRuns: Array<TestRun>): void {
+  public async runTests(testRuns: Array<TestRun>, signal: AbortSignal): Promise<void> {
     this.context.statusBarItem.hide();
-    for (const testRun of this.prepareTestRuns(testRuns)) {
-      const id = this.makeTestRunId(testRun);
-      this.queuedJobs.add(id);
-      this.testRunQueue.push({ id, status: 'waiting', testRun });
+    for (const testRun of testRuns) {
+      signal.throwIfAborted();
+      await this.handleTestJob(testRun, signal);
     }
   }
 
-  public async handleTestJob(job: TestRunJob): Promise<void> {
-    const { workspaceId, tests: selections } = job.testRun;
+  private async handleTestJob(testRun: TestRun, signal: AbortSignal): Promise<void> {
+    const { workspaceId, tests: selections } = testRun;
     const workspace = this.workspaces.get(workspaceId);
     const workspaceTests = this.tests.get(workspaceId) ?? [];
     const uri = selections?.[0]?.uri;
@@ -260,7 +247,7 @@ export default class Command {
     if (workspace === undefined || file === undefined) {
       const message = 'Queued tests no longer exist. Refresh the test tree.';
       this.reportRunError(message);
-      this.emit({ type: 'test-run-failed', payload: { testRun: job.testRun, error: { message } } });
+      this.emit({ type: 'test-run-failed', payload: { testRun, error: { message } } });
       return;
     }
 
@@ -269,6 +256,16 @@ export default class Command {
     }
 
     const results: Map<string, { status: RunStatus; time: number }> = new Map();
+    const updateResult = (testId: string, status: RunStatus, time: number): void => {
+      // A site can report several results (e.g. `<;> blaster`): the worst status wins.
+      const previous = results.get(testId) ?? { status: 'empty', time: 0 };
+      const current = {
+        status: severity[status] > severity[previous.status] ? status : previous.status,
+        time: previous.time + time
+      };
+      results.set(testId, current);
+      this.emit({ type: 'test-update', payload: { workspaceId, testId, ...current, isRunning: true } });
+    };
     let reason: string | undefined;
     let diagnostic: string | undefined;
     let exitCode: number | undefined;
@@ -278,7 +275,19 @@ export default class Command {
       exitCode = await this.exec(['check', file, '--solver-timeout', '1s', '--json'], workspace.path, event => {
         if (event.event === 'diagnostic') {
           this.logDiagnostic(event.diagnostic);
-          if (event.diagnostic.severity === 'error') diagnostic ??= event.diagnostic.message;
+          const { severity, message, location } = event.diagnostic;
+          if (severity === 'error') {
+            diagnostic ??= message;
+            if (/^unsolved goals\b/.test(message) && location && resolvePath(workspace.path, location.file) === file) {
+              const position = toPosition(location);
+              // Lean reports incomplete proofs at `by`, outside the Blaster invocation.
+              for (const test of tests) {
+                if (compare(test.bodyRange.start, position) <= 0 && compare(position, test.bodyRange.end) < 0) {
+                  updateResult(test.id, 'invalid', 0);
+                }
+              }
+            }
+          }
         }
         if (event.event !== 'result') return;
 
@@ -293,22 +302,15 @@ export default class Command {
           return;
         }
 
-        // A site can report several results (e.g. `<;> blaster`): the worst status wins
-        const previous = results.get(test.id) ?? { status: 'empty', time: 0 };
         const status = toRunStatus(result);
         if (status === 'error') reason ??= result.reason ?? undefined;
-        const current = {
-          status: severity[status] > severity[previous.status] ? status : previous.status,
-          time: previous.time + result.elapsedMs
-        };
-        results.set(test.id, current);
-
-        this.emit({ type: 'test-update', payload: { workspaceId, testId: test.id, ...current, isRunning: true } });
-        if (result.status === 'falsified' || result.status === 'undetermined') {
+        updateResult(test.id, status, result.elapsedMs);
+        if (result.status === 'falsified') {
           this.emit({ type: 'test-result', payload: { workspaceId, testId: test.id, result: sampleResult } });
         }
-      });
+      }, signal);
     } catch (error) {
+      if (error instanceof vscode.CancellationError) throw error;
       failure = error instanceof Error ? error.message : String(error);
     }
 
@@ -360,26 +362,48 @@ export default class Command {
     this.emit = callback;
   }
 
-  private exec(args: Array<string>, cwd: string, onEvent: (event: CommandEvent) => void): Promise<number> {
+  private exec(args: Array<string>, cwd: string, onEvent: (event: CommandEvent) => void, signal: AbortSignal): Promise<number> {
+    signal.throwIfAborted();
     this.context.outputChannel.appendLine(`> lean-blaster ${args.join(' ')}`);
 
     return new Promise((resolve, reject) => {
-      const child = spawn('lean-blaster', args, { cwd });
-      this.children.add(child);
+      const child = spawn('lean-blaster', args, { cwd, detached: process.platform !== 'win32' });
       let failure: Error | undefined;
       let complete: Extract<CommandEvent, { event: 'complete' }> | undefined;
+
+      const reportKillError = (error: Error) => {
+        failure = error;
+        this.context.outputChannel.appendLine(`> ERROR stopping lean-blaster: ${error.message}`);
+        child.kill('SIGKILL');
+      };
+      const stop = () => {
+        if (child.pid === undefined) return;
+        // Kill the process tree, including Lean/Lake and solver children.
+        if (process.platform === 'win32') {
+          execFile('taskkill', ['/PID', String(child.pid), '/T', '/F'], error => {
+            if (error && child.exitCode === null && child.signalCode === null) reportKillError(error);
+          });
+        } else {
+          try {
+            process.kill(-child.pid, 'SIGKILL');
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== 'ESRCH') reportKillError(error as Error);
+          }
+        }
+      };
+      signal.addEventListener('abort', stop, { once: true });
 
       child.stderr.setEncoding('utf8').on('data', data => this.context.outputChannel.append(data));
 
       createInterface({ input: child.stdout }).on('line', line => {
-        if (failure) return;
+        if (failure || signal.aborted) return;
         try {
           const event = parseEvent(line);
           if (event?.event === 'complete') complete = event;
           if (event) onEvent(event);
         } catch (error) {
           failure = new Error(`Unable to read lean-blaster output: ${String(error)}`);
-          child.kill('SIGTERM');
+          stop();
         }
       });
 
@@ -387,11 +411,12 @@ export default class Command {
         failure = error.code === 'ENOENT' ? new Error('lean-blaster not found on PATH') : error;
       });
 
-      child.on('close', (code, signal) => {
-        this.children.delete(child);
+      child.on('close', (code, exitSignal) => {
+        signal.removeEventListener('abort', stop);
         if (failure) reject(failure);
+        else if (signal.aborted) reject(signal.reason);
         else if (!complete || complete.interrupted || code === null || code !== complete.exitCode) {
-          reject(new Error(`lean-blaster run incomplete (exit ${code}, signal ${signal}).`));
+          reject(new Error(`lean-blaster run incomplete (exit ${code}, signal ${exitSignal}).`));
         } else if (args[0] === 'discover' && code !== 0 && code !== 4) {
           reject(new Error(`lean-blaster discovery failed (exit ${code}). See Blaster output.`));
         } else resolve(code);
