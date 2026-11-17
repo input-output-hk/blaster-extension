@@ -304,6 +304,19 @@ export const clearTestResults = async (database: Database): Promise<void> => {
 	await database.workspaces.find().update({ $set: { status: 'empty', time: undefined } });
 };
 
+export const stopTests = async (database: Database): Promise<void> => {
+	const tests = await database.tests.find({
+		selector: { $or: [{ isWaiting: true }, { isRunning: true }] }
+	}).exec();
+	
+	await database.tests.findByIds(tests.map(test => test.id))
+		.update({ $set: { isWaiting: false, isRunning: false } });
+	
+	for (const workspaceId of new Set(tests.map(test => test.workspaceId))) {
+		await updateWorkspace(database, workspaceId);
+	}
+};
+
 export const onTestUpdate = (database: Database, callback: (payload: TestTreeUpdate) => void): void => {
 	database.tests.update$.subscribe(changeEvent => {
 		callback({ type: 'test', test: toTest(changeEvent.documentData) });

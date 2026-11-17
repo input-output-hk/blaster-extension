@@ -7,11 +7,25 @@ import { BlasterContext } from '../extension';
 
 import type { QueueObject } from 'async';
 
+type TestAction = {
+  type: TestActionType;
+  controller: AbortController;
+  startedAt: number;
+  execute: () => Promise<void>;
+  reject: (error: unknown) => void;
+};
+
 export default class TestStore {
   private context: BlasterContext = {} as BlasterContext;
   private command: Command;
   private database: Database;
   private eventQueue: QueueObject<TestEvent>;
+  private actionQueue: QueueObject<TestAction>;
+  private currentAction?: TestAction;
+  private run?: TestTreeActionState['run'];
+  private testEventError?: Error;
+  private actionStateEmitter = new vscode.EventEmitter<TestTreeActionState>();
+  public readonly onActionStateUpdate = this.actionStateEmitter.event;
 
   private isTestTreeFetched: boolean = false;
   private testTreeOpenState: Record<string, boolean> = {};
@@ -22,6 +36,7 @@ export default class TestStore {
     this.command = new Command();
     this.database = new Database();
     this.eventQueue = queue<TestEvent>(this.handleTestEvent.bind(this), 1);
+    this.actionQueue = queue<TestAction>(this.handleAction.bind(this), 1);
   }
 
   public async initialize(context: BlasterContext): Promise<void> {
@@ -30,7 +45,76 @@ export default class TestStore {
     await this.database.initialize();
     await this.command.initialize(context);
 
-    this.command.onTestEvent(this.eventQueue.push);
+    this.command.onTestEvent(event => {
+      this.eventQueue.push(event, error => {
+        if (error) this.testEventError ??= error;
+      });
+    });
+    context.extension.subscriptions.push(this.actionStateEmitter, { dispose: () => this.stopAll() });
+  }
+
+  public getActionState(): TestTreeActionState {
+    const action = this.currentAction;
+    return {
+      isBusy: action !== undefined || this.actionQueue.length() > 0,
+      currentAction: action && {
+        type: action.type,
+        startedAt: action.startedAt,
+        isCancelling: action.controller.signal.aborted
+      },
+      run: this.run && { ...this.run }
+    };
+  }
+
+  private enqueueAction<T>(type: TestActionType, execute: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const controller = new AbortController();
+      let result: T;
+      this.actionQueue.push({
+        type, controller, startedAt: 0, reject,
+        execute: async () => {
+          result = await execute(controller.signal);
+          controller.signal.throwIfAborted();
+        }
+      }, error => {
+        if (error) reject(error);
+        else resolve(result);
+      });
+      this.actionStateEmitter.fire(this.getActionState());
+    });
+  }
+
+  private async handleAction(action: TestAction): Promise<void> {
+    this.currentAction = action;
+    action.startedAt = Date.now();
+    if (action.type === 'run') {
+      this.run = { startedAt: action.startedAt };
+    }
+    this.actionStateEmitter.fire(this.getActionState());
+    try {
+      await action.execute();
+    } finally {
+      if (action.type === 'run' && this.run) this.run.finishedAt = Date.now();
+      this.currentAction = undefined;
+      this.actionStateEmitter.fire(this.getActionState());
+    }
+  }
+
+  public stopAll(): void {
+    const error = new vscode.CancellationError();
+    this.actionQueue.remove(({ data }) => {
+      data.reject(error);
+      return true;
+    });
+    this.currentAction?.controller.abort(error);
+    this.actionStateEmitter.fire(this.getActionState());
+  }
+
+  private async flushTestEvents(): Promise<void> {
+    if (!this.eventQueue.idle()) await this.eventQueue.drain();
+    const error = this.testEventError;
+    this.testEventError = undefined;
+    if (error) throw error;
   }
 
   private async handleTestEvent(event: TestEvent): Promise<void> {
@@ -67,17 +151,23 @@ export default class TestStore {
   }
 
   public async fetchTestTree(): Promise<TestTree> {
-    try {
-      const { testTree, fileErrors } = await this.command.discover();
-      const storedTestTree = await this.database.storeTestTree(testTree, this.testTreeOpenState);
-      this.discoveryError = undefined;
-      this.discoveryFileErrors = fileErrors;
-      this.isTestTreeFetched = true;
-      return this.applyFileErrors(storedTestTree);
-    } catch (error) {
-      this.discoveryError = error instanceof Error ? error.message : String(error);
-      throw error;
-    }
+    return this.enqueueAction('fetch', async signal => {
+      try {
+        const { testTree, fileErrors } = await this.command.discover(signal);
+        signal.throwIfAborted();
+        const storedTestTree = await this.database.storeTestTree(testTree, this.testTreeOpenState);
+        this.discoveryError = undefined;
+        this.discoveryFileErrors = fileErrors;
+        this.isTestTreeFetched = true;
+        this.run = undefined;
+        return this.applyFileErrors(storedTestTree);
+      } catch (error) {
+        if (!(error instanceof vscode.CancellationError)) {
+          this.discoveryError = error instanceof Error ? error.message : String(error);
+        }
+        throw error;
+      }
+    });
   }
 
   public async getTestTree(): Promise<TestTree | undefined> {
@@ -137,9 +227,21 @@ export default class TestStore {
   }
 
   public async runTests(testRuns?: Array<TestRun>): Promise<void> {
-    const runs = this.command.prepareTestRuns(testRuns);
-    await this.database.handleTestRun(runs);
-    this.command.runTests(runs);
+    return this.enqueueAction('run', async signal => {
+      const runs = this.command.prepareTestRuns(testRuns);
+      try {
+        await this.database.handleTestRun(runs);
+        signal.throwIfAborted();
+        await this.command.runTests(runs, signal);
+      } finally {
+        // Apply already received results before releasing the next action or clearing busy flags.
+        try {
+          await this.flushTestEvents();
+        } finally {
+          await this.database.stopTests();
+        }
+      }
+    });
   }
 
   public async runAllTests(): Promise<void> {
@@ -147,7 +249,10 @@ export default class TestStore {
   }
 
   public async clearTestResults(): Promise<void> {
-    await this.database.clearTestResults();
+    return this.enqueueAction('clear', async () => {
+      await this.database.clearTestResults();
+      this.run = undefined;
+    });
   }
 
   public async getTestResult(workspaceId: string, testId: string): Promise<{ test: Test, result: TestResult }> {

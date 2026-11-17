@@ -103,7 +103,7 @@ export default class TestResultView {
 
   private sendTestResultToWebview(test: Test, result: TestResult): void {
     if (this.panel !== null) {
-      this.panel!.webview.postMessage({ type: 'test-result', payload: { test, result } } as ExtensionToWebviewMessage);
+      this.panel!.webview.postMessage({ type: 'test-result', payload: { test, result } } satisfies ExtensionToWebviewMessage);
     }
   }
 }

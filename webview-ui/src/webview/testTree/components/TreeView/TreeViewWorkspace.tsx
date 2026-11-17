@@ -73,6 +73,7 @@ const TreeViewWorkspace: React.FC<TreeViewWorkspaceProps> = ({
         <TreeViewGroup
           key={node.name}
           node={node}
+          workspaceId={workspace.id}
           path={[]}
           onRunTest={onRunTest}
           onFetchTestTree={onFetchTestTree}

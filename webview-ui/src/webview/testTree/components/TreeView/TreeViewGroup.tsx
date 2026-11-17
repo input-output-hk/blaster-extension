@@ -8,6 +8,7 @@ import { formatRunTime } from '../../../../utils/format';
 
 interface TreeViewGroupProps {
   node: TestTreeGroupNode;
+  workspaceId: string;
   path: Array<string>;
   onRunTest: (testRuns: Array<TestRun>) => void;
   onFetchTestTree: () => void;
@@ -17,6 +18,7 @@ interface TreeViewGroupProps {
 
 const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
   node,
+  workspaceId,
   path,
   onRunTest,
   onFetchTestTree,
@@ -24,7 +26,6 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
   onOpenTestResult
 }) => {
   const {
-    workspaceId,
     tests,
     time,
     status,
@@ -117,6 +118,7 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
           <TreeViewGroup
             key={folderNode.name}
             node={folderNode}
+            workspaceId={workspaceId}
             path={[...path, node.name]}
             onRunTest={onRunTest}
             onFetchTestTree={onFetchTestTree}
