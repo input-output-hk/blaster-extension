@@ -3,6 +3,9 @@ import { GenericWebviewViewProvider } from '../utils/webview';
 
 import type { BlasterContext } from '../extension';
 
+const DEPENDENCY_STATUS = '$(error) Dependency Error';
+const INSTALL_URL = 'https://github.com/input-output-hk/Lean-blaster/blob/997d25b4b3d91b39213992275ccec7a45af780ae/docs/cli.md';
+
 export default class TestTreeView {
   private context: BlasterContext;
   private webview: vscode.Webview | null = null;
@@ -70,6 +73,9 @@ export default class TestTreeView {
           case 'test-tree-open-folder':
             void vscode.commands.executeCommand('vscode.openFolder').then(undefined, error => this.reportError(error));
             break;
+          case 'test-tree-open-install-guide':
+            void vscode.env.openExternal(vscode.Uri.parse(INSTALL_URL));
+            break;
         }
       },
       undefined,
@@ -77,11 +83,9 @@ export default class TestTreeView {
     );
   }
 
+  // A pending fetch posts its own result, so cached content is not shown meanwhile
   private getTestTree(): void {
-    if (this.context.testStore.getDiscoveryError() !== undefined) {
-      this.sendTestTreeErrorToWebview();
-      return;
-    }
+    if (this.pendingFetch || this.sendStoredError()) return;
     this.context.testStore.getTestTree().then((testTree?: TestTree) => {
       if (testTree !== undefined) {
         this.sendTestTreeToWebview(testTree);
@@ -90,10 +94,7 @@ export default class TestTreeView {
   }
 
   private loadTestTree(): void {
-    if (this.context.testStore.getDiscoveryError() !== undefined) {
-      this.sendTestTreeErrorToWebview();
-      return;
-    }
+    if (this.pendingFetch || this.sendStoredError()) return;
     this.context.testStore.getTestTree().then((testTree?: TestTree) => {
       if (testTree !== undefined) {
         this.sendTestTreeToWebview(testTree);
@@ -103,18 +104,31 @@ export default class TestTreeView {
     }).catch(error => this.reportError(error, true));
   }
 
+  private sendStoredError(): boolean {
+    if (this.context.testStore.getIsBlasterMissing()) {
+      this.showDependencyError();
+      return true;
+    }
+    if (this.context.testStore.getDiscoveryError() !== undefined) {
+      this.sendTestTreeErrorToWebview();
+      return true;
+    }
+    return false;
+  }
+
   private fetchTestTree(): void {
     if (this.pendingFetch) {
       return
     };
-    this.pendingFetch = this.context.testStore.fetchTestTree().then((testTree: TestTree) => {
+    // Refresh clears the dependency error first; a newer proof run error stays
+    if (this.context.statusBarItem.text === DEPENDENCY_STATUS) this.context.statusBarItem.hide();
+    this.pendingFetch = this.context.testStore.fetchTestTree().then(testTree => {
+      if (testTree === undefined) return this.reportMissingDependency();
       this.sendTestTreeToWebview(testTree);
       this.reportDiscoveryFileErrors();
     }).catch(async error => {
       if (error instanceof vscode.CancellationError) {
-        if (this.context.testStore.getDiscoveryError() !== undefined) {
-          this.sendTestTreeErrorToWebview();
-        } else {
+        if (!this.sendStoredError()) {
           this.sendTestTreeToWebview(await this.context.testStore.getTestTree() ?? { workspaces: {} });
         }
       } else {
@@ -123,6 +137,19 @@ export default class TestTreeView {
     }).catch(error => this.reportError(error, true)).finally(() => {
       this.pendingFetch = null;
     });
+  }
+
+  private reportMissingDependency(): void {
+    this.context.outputChannel.appendLine('> ERROR: lean-blaster not found on PATH');
+    this.showDependencyError();
+  }
+
+  private showDependencyError(): void {
+    const { statusBarItem } = this.context;
+    statusBarItem.text = DEPENDENCY_STATUS;
+    statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
+    statusBarItem.show();
+    void this.webview?.postMessage({ type: 'test-tree-dependency-error' } satisfies ExtensionToWebviewMessage);
   }
 
   private runTests(payload: TestRunPayload): void {

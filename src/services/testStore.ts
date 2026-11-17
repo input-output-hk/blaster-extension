@@ -31,6 +31,7 @@ export default class TestStore {
   private testTreeOpenState: Record<string, boolean> = {};
   private discoveryError: string | undefined;
   private discoveryFileErrors: Array<DiscoveryFileError> = [];
+  private isBlasterMissing: boolean = false;
 
   constructor(context: vscode.ExtensionContext) {
     this.command = new Command();
@@ -150,9 +151,16 @@ export default class TestStore {
     await this.database.handleTestRunFailedEvent(event);
   }
 
-  public async fetchTestTree(): Promise<TestTree> {
+  public getIsBlasterMissing(): boolean {
+    return this.isBlasterMissing;
+  }
+
+  // Resolves undefined when lean-blaster is not found
+  public async fetchTestTree(): Promise<TestTree | undefined> {
     return this.enqueueAction('fetch', async signal => {
       try {
+        this.isBlasterMissing = !(await this.command.checkDependencies(signal));
+        if (this.isBlasterMissing) return undefined;
         const { testTree, fileErrors } = await this.command.discover(signal);
         signal.throwIfAborted();
         const storedTestTree = await this.database.storeTestTree(testTree, this.testTreeOpenState);
@@ -163,6 +171,7 @@ export default class TestStore {
         return this.applyFileErrors(storedTestTree);
       } catch (error) {
         if (!(error instanceof vscode.CancellationError)) {
+          this.isBlasterMissing = false;
           this.discoveryError = error instanceof Error ? error.message : String(error);
         }
         throw error;

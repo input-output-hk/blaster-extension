@@ -11,6 +11,9 @@ statuses, timings, counterexample steps, and transaction graphs in VS Code.
     pinned toolchain, dependencies, and required solver.
 - The `lean-blaster` CLI on the same PATH (see the Lean-blaster repository).
 
+Once a folder is open, the extension first runs `lean-blaster --version`. If the
+command is not found, a setup screen replaces the tree until a retry finds it.
+
 Discovery runs `lean-blaster discover <workspace> --json` for each workspace folder.
 Runs use `lean-blaster check <file.lean> --solver-timeout 1s --json`; Lean checks
 whole files, so running one test runs every test in its file.

@@ -198,6 +198,7 @@ type UpdateOpenStatePayload = {
 type ExtensionToWebviewMessage =
   | { type: "test-tree"; payload: TestTreePayload }
   | { type: "test-tree-error" }
+  | { type: "test-tree-dependency-error" }
   | { type: "test-tree-update"; payload: TestTreeUpdate }
   | { type: "test-tree-action-state"; payload: TestTreeActionState }
   | { type: "test-result"; payload: TestResultPayload };
@@ -208,7 +209,8 @@ type WebviewToExtensionMessage =
   | { type: "test-tree-run"; payload: TestRunPayload }
   | { type: "test-tree-open-result"; payload: OpenResultPayload }
   | { type: "test-tree-update-open-state"; payload: UpdateOpenStatePayload }
-  | { type: "test-tree-open-folder" };
+  | { type: "test-tree-open-folder" }
+  | { type: "test-tree-open-install-guide" };
 
 // Test Event
 
