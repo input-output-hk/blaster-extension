@@ -305,9 +305,7 @@ export default class Command {
         const status = toRunStatus(result);
         if (status === 'error') reason ??= result.reason ?? undefined;
         updateResult(test.id, status, result.elapsedMs);
-        if (result.status === 'falsified') {
-          this.emit({ type: 'test-result', payload: { workspaceId, testId: test.id, result: sampleResult } });
-        }
+        this.emit({ type: 'test-result', payload: { workspaceId, testId: test.id, result: sampleResult } });
       }, signal);
     } catch (error) {
       if (error instanceof vscode.CancellationError) throw error;
