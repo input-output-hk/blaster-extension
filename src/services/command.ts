@@ -124,6 +124,25 @@ export default class Command {
     this.context = context;
   }
 
+  // Runs once a folder is open. Without a cwd, ENOENT means lean-blaster (or its interpreter) is not found.
+  public checkDependencies(signal: AbortSignal): Promise<boolean> {
+    if (!vscode.workspace.workspaceFolders?.length) return Promise.resolve(true);
+    signal.throwIfAborted();
+    this.context.outputChannel.appendLine('> lean-blaster --version');
+
+    return new Promise((resolve, reject) => {
+      const child = execFile('lean-blaster', ['--version'], { timeout: 10_000, killSignal: 'SIGKILL' }, error => {
+        signal.removeEventListener('abort', stop);
+        if (signal.aborted) reject(signal.reason);
+        else if (!error) resolve(true);
+        else if (error.code === 'ENOENT') resolve(false);
+        else reject(new Error(`lean-blaster --version failed: ${error.message}`));
+      });
+      const stop = () => child.kill('SIGKILL');
+      signal.addEventListener('abort', stop, { once: true });
+    });
+  }
+
   public async discover(signal: AbortSignal): Promise<{ testTree: TestTree; fileErrors: Array<DiscoveryFileError> }> {
     const workspaces = new Map(
       vscode.workspace.workspaceFolders?.map(folder => [

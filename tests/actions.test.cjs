@@ -97,6 +97,7 @@ const setup = async t => {
   const { tree, tests } = makeTree();
   store.command.workspaces.set('workspace', { id: 'workspace', path: process.cwd() });
   store.command.tests.set('workspace', tests);
+  t.mock.method(store.command, 'checkDependencies', async () => true);
   t.mock.method(store.command, 'discover', async () => ({ testTree: structuredClone(tree), fileErrors: [] }));
   await store.fetchTestTree();
   return { store, context, output, errors };
@@ -344,4 +345,98 @@ test('persistence errors reject the run and release the queue with no stuck busy
   const tree = await store.getTestTree();
   assert.equal(tree.workspaces.workspace.isWaiting, false);
   assert.equal(tree.workspaces.workspace.isRunning, false);
+});
+
+test('a missing lean-blaster skips discovery and keeps the cached tree', async t => {
+  const { store } = await setup(t);
+  const original = await store.getTestTree();
+  store.command.checkDependencies.mock.mockImplementation(async () => false);
+  assert.equal(await store.fetchTestTree(), undefined);
+  assert.equal(store.getIsBlasterMissing(), true);
+  assert.equal(store.getDiscoveryError(), undefined);
+  assert.equal(store.command.discover.mock.callCount(), 1);
+  assert.deepEqual(await store.getTestTree(), original);
+});
+
+test('the dependency check runs inside the queued fetch, before later actions', async t => {
+  const { store } = await setup(t);
+  const gate = Promise.withResolvers();
+  store.command.checkDependencies.mock.mockImplementation(() => gate.promise);
+  const runs = t.mock.method(store.command, 'runTests', async () => {});
+  const refresh = store.fetchTestTree();
+  const run = store.runAllTests();
+  try {
+    await until(() => store.command.checkDependencies.mock.callCount() === 2);
+    assert.equal(store.getActionState().isBusy, true);
+    assert.equal(store.getActionState().currentAction.type, 'fetch');
+    assert.equal(store.actionQueue.length(), 1);
+    assert.equal(runs.mock.callCount(), 0);
+  } finally {
+    gate.resolve(true);
+  }
+  await Promise.all([refresh, run]);
+  assert.equal(store.command.discover.mock.callCount(), 2);
+  assert.equal(runs.mock.callCount(), 1);
+});
+
+test('Stop All during the dependency check kills it without a discovery error',
+  { skip: process.platform === 'win32' }, async t => {
+    const { store } = await setup(t);
+    store.command.checkDependencies.mock.restore();
+    const execFile = childProcess.execFile;
+    let child;
+    t.mock.method(childProcess, 'execFile', (command, args, options, callback) => {
+      assert.equal(command, 'lean-blaster');
+      child = execFile(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], options, callback);
+      return child;
+    });
+    let settled = false;
+    const refresh = assert.rejects(store.fetchTestTree(), vscode.CancellationError).finally(() => { settled = true; });
+    await until(() => child !== undefined && child.pid !== undefined);
+    store.stopAll();
+    // Settles well before the probe's own 10 s timeout
+    await until(() => settled);
+    await refresh;
+    await until(() => child.exitCode !== null || child.signalCode !== null);
+    assert.equal(child.signalCode, 'SIGKILL');
+    assert.equal(store.command.discover.mock.callCount(), 1);
+    assert.equal(store.getDiscoveryError(), undefined);
+    assert.equal(store.getIsBlasterMissing(), false);
+    assert.equal(store.getActionState().isBusy, false);
+  });
+
+test('cancelling a retry from the missing screen restores the screen and status bar', async t => {
+  const { store, context } = await setup(t);
+  Object.assign(context.statusBarItem, {
+    text: '',
+    visible: false,
+    show() { this.visible = true; },
+    hide() { this.visible = false; },
+  });
+  const view = new TestTreeView();
+  view.activate(context);
+  const messages = [];
+  let receive;
+  view.onWebviewResolved({
+    postMessage: message => { messages.push(message); return Promise.resolve(true); },
+    onDidReceiveMessage: callback => { receive = callback; },
+  }, { onDidDispose() {} });
+
+  store.command.checkDependencies.mock.mockImplementation(async () => false);
+  receive({ type: 'test-tree-fetch' });
+  await until(() => messages.some(message => message.type === 'test-tree-dependency-error') && view.pendingFetch === null);
+  assert.equal(context.statusBarItem.visible, true);
+
+  store.command.checkDependencies.mock.mockImplementation(signal => new Promise((resolve, reject) => {
+    signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+  }));
+  messages.length = 0;
+  receive({ type: 'test-tree-fetch' });
+  assert.equal(context.statusBarItem.visible, false);
+  await until(() => store.getActionState().currentAction?.type === 'fetch');
+  store.stopAll();
+  await until(() => messages.some(message => message.type === 'test-tree-dependency-error') && view.pendingFetch === null);
+  assert.equal(context.statusBarItem.visible, true);
+  assert.equal(context.statusBarItem.text, '$(error) Dependency Error');
+  assert.ok(!messages.some(message => message.type === 'test-tree' || message.type === 'test-tree-error'));
 });

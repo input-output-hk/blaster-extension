@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import LoadingView from './components/LoadingView';
 import EmptyView from './components/EmptyView';
 import ErrorView from './components/ErrorView';
+import MissingDependencyView from './components/MissingDependencyView';
 import TreeView from './components/TreeView';
 import HelperText from './components/HelperText';
 
@@ -19,7 +20,7 @@ interface Props {
 }
 
 const TestTreeView: React.FC<Props> = ({ vscode }) => {
-  const [activeView, setActiveView] = useState<'loading' | 'empty-tree' | 'tree' | 'error'>('loading');
+  const [activeView, setActiveView] = useState<'loading' | 'empty-tree' | 'tree' | 'error' | 'dependency-error'>('loading');
   const [testTree, setTestTree] = useState<TestTree | null>(null);
   const [actionState, setActionState] = useState<TestTreeActionState>({ isBusy: false });
 
@@ -33,6 +34,9 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
       }
       if (message.type === 'test-tree-error') {
         setActiveView('error');
+      }
+      if (message.type === 'test-tree-dependency-error') {
+        setActiveView('dependency-error');
       }
       if (message.type === 'test-tree-update') {
         setTestTree(testTree => {
@@ -48,7 +52,7 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
       if (message.type === 'test-tree-action-state') {
         setActionState(message.payload);
         if (message.payload.currentAction?.type === 'fetch') {
-          setActiveView(view => view === 'error' ? 'loading' : view);
+          setActiveView(view => view === 'error' || view === 'dependency-error' ? 'loading' : view);
         }
       }
     };
@@ -65,6 +69,10 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
 
   const onOpenFolder = () => {
     vscode.postMessage({ type: 'test-tree-open-folder' } as WebviewToExtensionMessage)
+  };
+
+  const onOpenInstallGuide = () => {
+    vscode.postMessage({ type: 'test-tree-open-install-guide' } as WebviewToExtensionMessage)
   };
 
   const onRunTest = (testRuns: Array<TestRun>) => {
@@ -103,6 +111,9 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
         {activeView === 'loading' && <LoadingView />}
         {activeView === 'error' &&
           <ErrorView onFetchTestTree={onFetchTestTree} />
+        }
+        {activeView === 'dependency-error' &&
+          <MissingDependencyView onInstall={onOpenInstallGuide} onRetry={onFetchTestTree} />
         }
         {activeView === 'empty-tree' &&
           <EmptyView
