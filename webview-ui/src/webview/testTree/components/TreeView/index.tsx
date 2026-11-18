@@ -1,9 +1,10 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { VscodeTree } from '@vscode-elements/react-elements';
 
 import Tooltip from '../../../../components/Tooltip';
 import TreeViewFilter from '../TreeViewFilter';
 import TreeViewWorkspace from './TreeViewWorkspace';
+import TreeViewContextMenu, { type TreeViewContextMenuRef } from '../TreeViewContextMenu';
 import { getVisibleItems } from '../../utils/treeUtils';
 
 import type { FilterContext } from '../../utils/filterTags';
@@ -25,6 +26,7 @@ const TreeView: React.FC<TreeViewProps> = ({
   onUpdateOpenTestTreeNode,
   onOpenTestResult
 }) => {
+  const contextMenuRef = useRef<TreeViewContextMenuRef>(null);
   const [filter, setFilter] = useState<TestTreeFilter>({});
 
   const filterContext = useMemo<FilterContext>(
@@ -48,6 +50,10 @@ const TreeView: React.FC<TreeViewProps> = ({
     setFilter({ ...filter, text: undefined });
   };
 
+  const handleContextMenu = (event: React.MouseEvent, item: TestTreeItem): void => {
+    contextMenuRef.current?.open(event, item);
+  };
+
   return (
     <div className="h-full flex flex-col">
       <TreeViewFilter
@@ -66,10 +72,16 @@ const TreeView: React.FC<TreeViewProps> = ({
               onFetchTestTree={onFetchTestTree}
               onOpenTestResult={onOpenTestResult}
               onUpdateOpenTestTreeNode={onUpdateOpenTestTreeNode}
+              onContextMenu={handleContextMenu}
             />
           ))}
         </VscodeTree>
       </div>
+      <TreeViewContextMenu
+        ref={contextMenuRef}
+        onRunTest={onRunTest}
+        onOpenTestResult={onOpenTestResult}
+      />
       <Tooltip id="tree-node-action" place="bottom" />
     </div>
   );

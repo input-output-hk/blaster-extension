@@ -8,12 +8,14 @@ interface TreeViewTestProps {
   test: Test;
   onRunTest: (testRuns: Array<TestRun>) => void;
   onOpenTestResult: (workspaceId: string, testId: string) => void;
+  onContextMenu: (event: React.MouseEvent, item: TestTreeItem) => void;
 }
 
 const TreeViewTest: React.FC<TreeViewTestProps> = ({
   test,
   onRunTest,
-  onOpenTestResult
+  onOpenTestResult,
+  onContextMenu
 }) => {
   const isRunnable = !test.isRunning && !test.isWaiting;
   const hasResult = test.status !== 'empty';
@@ -37,8 +39,14 @@ const TreeViewTest: React.FC<TreeViewTestProps> = ({
     onRunTest([{ workspaceId: test.workspaceId, tests: [{ uri, ids: [id] }] }]);
   };
 
+  const handleContextMenu = (event: React.MouseEvent): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    onContextMenu(event, { type: 'test', test });
+  };
+
   return (
-    <VscodeTreeItem>
+    <VscodeTreeItem onContextMenu={handleContextMenu}>
       <TestStatusIcon
         isWaiting={test.isWaiting}
         isRunning={test.isRunning}
