@@ -85,6 +85,17 @@ type DiscoveryFileError = {
   message: string;
 };
 
+type TestTreeFilter = {
+  text?: string;
+};
+
+type VisibleItem = TestTreeWorkspaceNode | TestTreeGroupNode | Test;
+
+type EditorFilesPayload = {
+  activeFile?: string;
+  openFiles: Array<string>;
+};
+
 // Test Result
 
 type TestResult = {
@@ -200,6 +211,7 @@ type ExtensionToWebviewMessage =
   | { type: "test-tree-error" }
   | { type: "test-tree-dependency-error" }
   | { type: "test-tree-update"; payload: TestTreeUpdate }
+  | { type: "editor-files"; payload: EditorFilesPayload }
   | { type: "test-tree-action-state"; payload: TestTreeActionState }
   | { type: "test-result"; payload: TestResultPayload };
 

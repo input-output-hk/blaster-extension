@@ -33,3 +33,5 @@ node_modules
 *.vsix
 
 bin/*
+# Claude Code personal settings
+.claude/settings.local.json

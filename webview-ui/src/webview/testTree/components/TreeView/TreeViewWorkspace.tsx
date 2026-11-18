@@ -7,6 +7,7 @@ import { formatRunTime } from '../../../../utils/format';
 
 interface TreeViewWorkspaceProps {
   workspace: TestTreeWorkspaceNode;
+  visible: Set<VisibleItem>;
   onRunTest: (testRuns: Array<TestRun>) => void;
   onFetchTestTree: () => void;
   onOpenTestResult: (workspaceId: string, testId: string) => void;
@@ -15,6 +16,7 @@ interface TreeViewWorkspaceProps {
 
 const TreeViewWorkspace: React.FC<TreeViewWorkspaceProps> = ({
   workspace,
+  visible,
   onRunTest,
   onFetchTestTree,
   onOpenTestResult,
@@ -35,6 +37,9 @@ const TreeViewWorkspace: React.FC<TreeViewWorkspaceProps> = ({
     event.nativeEvent.stopImmediatePropagation();
     onRunTest([{ workspaceId: workspace.id }]);
   };
+
+  /** Returns whether the filter left this node visible. */
+  const isVisible = (node: TestTreeGroupNode): boolean => visible.has(node);
 
   return (
     <VscodeTreeItem ref={treeItemRef} open={workspace.isOpen}>
@@ -69,12 +74,13 @@ const TreeViewWorkspace: React.FC<TreeViewWorkspaceProps> = ({
           <i className="codicon codicon-run-all" />
         </button>
       </span>
-      {Object.values(workspace.nodes).map(node => (
+      {Object.values(workspace.nodes).filter(isVisible).map(node => (
         <TreeViewGroup
           key={node.name}
           node={node}
           workspaceId={workspace.id}
           path={[]}
+          visible={visible}
           onRunTest={onRunTest}
           onFetchTestTree={onFetchTestTree}
           onOpenTestResult={onOpenTestResult}
