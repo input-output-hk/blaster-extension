@@ -15,6 +15,7 @@ interface TreeViewGroupProps {
   onFetchTestTree: () => void;
   onOpenTestResult: (workspaceId: string, testId: string) => void;
   onUpdateOpenTestTreeNode: (isOpen: boolean, workspaceId: string, group?: Array<string>) => void;
+  onContextMenu: (event: React.MouseEvent, item: TestTreeItem) => void;
 }
 
 const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
@@ -25,7 +26,8 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
   onRunTest,
   onFetchTestTree,
   onUpdateOpenTestTreeNode,
-  onOpenTestResult
+  onOpenTestResult,
+  onContextMenu
 }) => {
   const {
     tests,
@@ -61,8 +63,14 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
     onFetchTestTree();
   };
 
+  const handleContextMenu = (event: React.MouseEvent): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    onContextMenu(event, { type: 'group', workspaceId, node });
+  };
+
   return (
-    <VscodeTreeItem ref={treeItemRef} open={node.isOpen}>
+    <VscodeTreeItem ref={treeItemRef} open={node.isOpen} onContextMenu={handleContextMenu}>
       {error !== undefined
         ? <i className="mr-0.5 codicon codicon-error text-[var(--vscode-errorForeground)]" />
         : <TestStatusIcon
@@ -130,6 +138,7 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
             onFetchTestTree={onFetchTestTree}
             onOpenTestResult={onOpenTestResult}
             onUpdateOpenTestTreeNode={onUpdateOpenTestTreeNode}
+            onContextMenu={onContextMenu}
           />
         ))
       }
@@ -140,6 +149,7 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
             test={test}
             onRunTest={onRunTest}
             onOpenTestResult={onOpenTestResult}
+            onContextMenu={onContextMenu}
           />
         ))
       }

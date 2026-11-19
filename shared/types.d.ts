@@ -79,6 +79,10 @@ type TestTreeFileNode = TestTreeGroupNode & {
   error?: string;
 };
 
+type TestTreeItem =
+  | { type: "group"; workspaceId: string; node: TestTreeGroupNode }
+  | { type: "test"; test: Test };
+
 type DiscoveryFileError = {
   workspaceId: string;
   group: Array<string>;

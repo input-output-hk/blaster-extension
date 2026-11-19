@@ -224,7 +224,7 @@ export default class Command {
   }
 
   public prepareTestRuns(testRuns: Array<TestRun> = Array.from(this.workspaces.keys(), workspaceId => ({ workspaceId }))): Array<TestRun> {
-    const runs = new Map<string, TestRun>();
+    const runs = new Map<string, TestRun & { tests: [{ uri: string; ids?: Array<string> }] }>();
     for (const { workspaceId, tests: selections } of testRuns) {
       const workspaceTests = this.tests.get(workspaceId);
       if (!workspaceTests) throw new Error(`Unknown workspace: ${workspaceId}. Refresh the test tree.`);
@@ -239,10 +239,13 @@ export default class Command {
         if (fileTests.length === 0 || ids?.some(id => !fileTests.some(test => getTestRunLocation(test).id === id))) {
           throw new Error(`Some selected tests in ${uri} no longer exist. Refresh the test tree.`);
         }
-        // The CLI checks the whole file even when individual positions are selected.
-        const testRun: TestRun = { workspaceId, tests: [{ uri }] };
-        const id = this.makeTestRunId(testRun);
-        runs.set(id, testRun);
+        const id = this.makeTestRunId({ workspaceId, tests: [{ uri }] });
+        const selection = runs.get(id)?.tests[0];
+        if (selection === undefined) {
+          runs.set(id, { workspaceId, tests: [{ uri, ids: ids && [...ids] }] });
+        } else if (selection.ids !== undefined) {
+          selection.ids = ids && Array.from(new Set([...selection.ids, ...ids]));
+        }
       }
     }
     return Array.from(runs.values());
@@ -261,7 +264,9 @@ export default class Command {
     const workspace = this.workspaces.get(workspaceId);
     const workspaceTests = this.tests.get(workspaceId) ?? [];
     const uri = selections?.[0]?.uri;
-    const tests = workspaceTests.filter(test => getTestRunLocation(test).uri === uri);
+    const ids = selections?.[0]?.ids;
+    const fileTests = workspaceTests.filter(test => getTestRunLocation(test).uri === uri);
+    const tests = ids === undefined ? fileTests : fileTests.filter(test => ids.includes(getTestRunLocation(test).id));
     const file = tests[0]?.location.path;
     if (workspace === undefined || file === undefined) {
       const message = 'Queued tests no longer exist. Refresh the test tree.';
@@ -313,13 +318,14 @@ export default class Command {
         const { result } = event;
         const position = toPosition(result.location);
         const test = resolvePath(workspace.path, result.location.file) === file
-          ? tests.find(({ location: { range } }) => compare(range.start, position) <= 0 && compare(position, range.end) < 0)
+          ? fileTests.find(({ location: { range } }) => compare(range.start, position) <= 0 && compare(position, range.end) < 0)
           : undefined;
 
         if (test === undefined) {
           this.context.outputChannel.appendLine(`> Unmatched result for ${result.property}`);
           return;
         }
+        if (!tests.includes(test)) return;
 
         const status = toRunStatus(result);
         if (status === 'error') reason ??= result.reason ?? undefined;
