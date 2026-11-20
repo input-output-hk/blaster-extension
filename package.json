@@ -105,6 +105,16 @@
       {
         "command": "blaster-extension.collapseAllTests",
         "title": "Blaster: Collapse All Properties"
+      },
+      {
+        "command": "blaster-extension.sortTestsByLocation",
+        "title": "Blaster: Sort by Location",
+        "toggled": "blaster.testTreeSortBy == location"
+      },
+      {
+        "command": "blaster-extension.sortTestsByStatus",
+        "title": "Blaster: Sort by Status",
+        "toggled": "blaster.testTreeSortBy == status"
       }
     ],
     "menus": {
@@ -138,6 +148,16 @@
           "command": "blaster-extension.collapseAllTests",
           "when": "view == blaster-test-tree",
           "group": "overflow@2"
+        },
+        {
+          "command": "blaster-extension.sortTestsByLocation",
+          "when": "view == blaster-test-tree",
+          "group": "overflow_sort@1"
+        },
+        {
+          "command": "blaster-extension.sortTestsByStatus",
+          "when": "view == blaster-test-tree",
+          "group": "overflow_sort@2"
         }
       ]
     },

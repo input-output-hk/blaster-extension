@@ -10,6 +10,7 @@ export default class TestTreeView {
   private context: BlasterContext;
   private webview: vscode.Webview | null = null;
   private pendingFetch: Promise<void> | null = null;
+  private sortBy: SortBy = 'location';
 
   constructor() {
     this.context = {} as BlasterContext;
@@ -28,6 +29,8 @@ export default class TestTreeView {
       vscode.commands.registerCommand('blaster-extension.stopAllTests', this.stopAllTests.bind(this)),
       vscode.commands.registerCommand('blaster-extension.clearAllTests', this.clearAllTests.bind(this)),
       vscode.commands.registerCommand('blaster-extension.collapseAllTests', this.collapseAllTests.bind(this)),
+      vscode.commands.registerCommand('blaster-extension.sortTestsByLocation', this.sortTestsByLocation.bind(this)),
+      vscode.commands.registerCommand('blaster-extension.sortTestsByStatus', this.sortTestsByStatus.bind(this)),
       vscode.commands.registerCommand('blaster-extension.showOutput', this.showOutput.bind(this)),
 
       vscode.window.onDidChangeActiveTextEditor(this.sendEditorFilesToWebview.bind(this)),
@@ -38,6 +41,7 @@ export default class TestTreeView {
 
     this.context.testStore.onTestTreeUpdate(this.onTestTreeUpdate.bind(this));
     this.onActionStateUpdate(this.context.testStore.getActionState());
+    this.setSortBy(this.sortBy);
   }
 
   public refreshTestTree(): void {
@@ -57,6 +61,7 @@ export default class TestTreeView {
         switch (message.type) {
           case 'webview-ready':
             this.onActionStateUpdate(this.context.testStore.getActionState());
+            this.sendSortToWebview();
             this.loadTestTree();
             this.sendEditorFilesToWebview();
             break;
@@ -175,6 +180,31 @@ export default class TestTreeView {
   private collapseAllTests(): void {
     this.context.testStore.collapseTestTree();
     this.getTestTree();
+  }
+
+  /** Sorts the properties of each file by their position in the file (the default). */
+  private sortTestsByLocation(): void {
+    this.setSortBy('location');
+  }
+
+  /** Sorts the properties of each file by status: falsified, errors, undetermined, valid, then not run. */
+  private sortTestsByStatus(): void {
+    this.setSortBy('status');
+  }
+
+  /** Stores the sort, moves the menu check mark to it and sends it to the webview. */
+  private setSortBy(sortBy: SortBy): void {
+    this.sortBy = sortBy;
+    void vscode.commands.executeCommand('setContext', 'blaster.testTreeSortBy', sortBy)
+      .then(undefined, error => this.reportError(error));
+    this.sendSortToWebview();
+  }
+
+  /** Sends the current sort to the webview, if it is open. */
+  private sendSortToWebview(): void {
+    void this.webview?.postMessage(
+      { type: 'test-tree-set-sort', payload: { sortBy: this.sortBy } } satisfies ExtensionToWebviewMessage
+    );
   }
 
   private clearAllTests(): void {

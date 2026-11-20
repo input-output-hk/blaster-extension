@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { getVisibleItems, parseFilterText } from './treeUtils';
+import { getVisibleItems, parseFilterText, sortTests } from './treeUtils';
 
 import type { FilterContext } from './filterTags';
 
@@ -225,5 +225,53 @@ describe('getVisibleItems', () => {
     test('hides parents with no visible test left', () => {
       expect(getVisibleNames('nothing-matches')).toEqual([]);
     });
+  });
+});
+
+/** Builds a test at the given 0-based line and column with the given status. */
+const makeTestAt = (id: string, line: number, character: number, status: RunStatus): Test => ({
+  ...makeTest(id, `prop ${id}`, status, MINT_FILE),
+  location: { path: MINT_FILE, range: { start: { line, character }, end: { line, character: character + 1 } } },
+});
+
+/** Returns the ids of the tests, in order. */
+const getIds = (tests: Array<Test>): Array<string> => tests.map(getTestId);
+
+/** Returns the id of a test. */
+const getTestId = (test: Test): string => test.id;
+
+describe('sortTests', () => {
+  const valid = makeTestAt('valid', 2, 0, 'valid');
+  const empty = makeTestAt('empty', 0, 4, 'empty');
+  const undetermined = makeTestAt('undetermined', 9, 0, 'undetermined');
+  const error = makeTestAt('error', 5, 0, 'error');
+  const invalid = makeTestAt('invalid', 7, 0, 'invalid');
+  const tests = [valid, empty, undetermined, error, invalid];
+
+  test('location: by line, then column', () => {
+    const sameLine = makeTestAt('sameLine', 0, 1, 'empty');
+    expect(getIds(sortTests([...tests, sameLine], 'location')))
+      .toEqual(['sameLine', 'empty', 'valid', 'error', 'invalid', 'undetermined']);
+  });
+
+  test('status: falsified, error, undetermined, valid, not run', () => {
+    expect(getIds(sortTests(tests, 'status'))).toEqual(['invalid', 'error', 'undetermined', 'valid', 'empty']);
+  });
+
+  test('status: same status keeps location order', () => {
+    const late = makeTestAt('late', 20, 0, 'invalid');
+    const early = makeTestAt('early', 1, 0, 'invalid');
+    expect(getIds(sortTests([late, valid, early], 'status'))).toEqual(['early', 'late', 'valid']);
+  });
+
+  test('status: with no results it matches location order', () => {
+    const notRun = [makeTestAt('b', 3, 0, 'empty'), makeTestAt('a', 1, 0, 'empty')];
+    expect(getIds(sortTests(notRun, 'status'))).toEqual(getIds(sortTests(notRun, 'location')));
+  });
+
+  test('does not change the input array', () => {
+    const input = [...tests];
+    sortTests(input, 'status');
+    expect(input).toEqual(tests);
   });
 });
