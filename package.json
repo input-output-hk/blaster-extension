@@ -116,7 +116,7 @@
         },
         {
           "command": "blaster-extension.runAllTests",
-          "when": "view == blaster-test-tree && !blaster.testTreeBusy",
+          "when": "view == blaster-test-tree && !blaster.testTreeBusy && blaster.hasTestTree",
           "group": "navigation@2"
         },
         {
@@ -131,12 +131,12 @@
         },
         {
           "command": "blaster-extension.clearAllTests",
-          "when": "view == blaster-test-tree",
+          "when": "view == blaster-test-tree && blaster.hasTestTree",
           "group": "overflow@1"
         },
         {
           "command": "blaster-extension.collapseAllTests",
-          "when": "view == blaster-test-tree",
+          "when": "view == blaster-test-tree && blaster.hasTestTree",
           "group": "overflow@2"
         }
       ]
