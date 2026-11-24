@@ -72,7 +72,7 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
   return (
     <VscodeTreeItem ref={treeItemRef} open={node.isOpen} onContextMenu={handleContextMenu}>
       {error !== undefined
-        ? <i className="mr-0.5 codicon codicon-error text-[var(--vscode-errorForeground)]" />
+        ? <i className="mr-0.5 codicon codicon-warning text-[var(--vscode-errorForeground)]" />
         : <TestStatusIcon
             isWaiting={isWaiting}
             isRunning={isRunning}
@@ -87,11 +87,7 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
         >
           {node.name}
           {error !== undefined &&
-            <span
-              className="ml-1 text-[var(--vscode-errorForeground)]"
-              data-tooltip-id="tree-node-action"
-              data-tooltip-content={error}
-            >
+            <span className="ml-1 text-[var(--vscode-errorForeground)]">
               Discovery Failed
             </span>
           }
