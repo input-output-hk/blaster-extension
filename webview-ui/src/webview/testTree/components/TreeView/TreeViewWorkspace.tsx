@@ -8,6 +8,7 @@ import { formatRunTime } from '../../../../utils/format';
 interface TreeViewWorkspaceProps {
   workspace: TestTreeWorkspaceNode;
   visible: Set<VisibleItem>;
+  sortBy: SortBy;
   onRunTest: (testRuns: Array<TestRun>) => void;
   onFetchTestTree: () => void;
   onOpenTestResult: (workspaceId: string, testId: string) => void;
@@ -18,6 +19,7 @@ interface TreeViewWorkspaceProps {
 const TreeViewWorkspace: React.FC<TreeViewWorkspaceProps> = ({
   workspace,
   visible,
+  sortBy,
   onRunTest,
   onFetchTestTree,
   onOpenTestResult,
@@ -83,6 +85,7 @@ const TreeViewWorkspace: React.FC<TreeViewWorkspaceProps> = ({
           workspaceId={workspace.id}
           path={[]}
           visible={visible}
+          sortBy={sortBy}
           onRunTest={onRunTest}
           onFetchTestTree={onFetchTestTree}
           onOpenTestResult={onOpenTestResult}

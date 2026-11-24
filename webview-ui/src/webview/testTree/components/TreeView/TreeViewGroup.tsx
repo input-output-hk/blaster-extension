@@ -3,7 +3,7 @@ import { VscodeTreeItem } from '@vscode-elements/react-elements';
 import TreeViewTest from './TreeViewTest';
 import TestStatusIcon from '../../../../components/TestStatusIcon';
 import useTreeItemState from '../../../../hooks/useTreeItemState';
-import { getGroupInfo } from '../../utils/treeUtils';
+import { getGroupInfo, sortTests } from '../../utils/treeUtils';
 import { formatRunTime } from '../../../../utils/format';
 
 interface TreeViewGroupProps {
@@ -11,6 +11,7 @@ interface TreeViewGroupProps {
   workspaceId: string;
   path: Array<string>;
   visible: Set<VisibleItem>;
+  sortBy: SortBy;
   onRunTest: (testRuns: Array<TestRun>) => void;
   onFetchTestTree: () => void;
   onOpenTestResult: (workspaceId: string, testId: string) => void;
@@ -23,6 +24,7 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
   workspaceId,
   path,
   visible,
+  sortBy,
   onRunTest,
   onFetchTestTree,
   onUpdateOpenTestTreeNode,
@@ -134,6 +136,7 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
             workspaceId={workspaceId}
             path={[...path, node.name]}
             visible={visible}
+            sortBy={sortBy}
             onRunTest={onRunTest}
             onFetchTestTree={onFetchTestTree}
             onOpenTestResult={onOpenTestResult}
@@ -143,7 +146,7 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
         ))
       }
       {node.type === 'file' &&
-        Object.values((node as TestTreeFileNode).tests).filter(isVisible).map(test => (
+        sortTests(Object.values((node as TestTreeFileNode).tests).filter(isVisible), sortBy).map(test => (
           <TreeViewTest
             key={test.id}
             test={test}

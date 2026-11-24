@@ -24,6 +24,7 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
   const [testTree, setTestTree] = useState<TestTree | null>(null);
   const [editorFiles, setEditorFiles] = useState<EditorFilesPayload>({ openFiles: [] });
   const [actionState, setActionState] = useState<TestTreeActionState>({ isBusy: false });
+  const [sortBy, setSortBy] = useState<SortBy>('location');
 
   useEffect(() => {
     const messageHandler = (event: MessageEvent) => {
@@ -52,6 +53,9 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
               return updateTestWorkspace(testTree, message.payload.workspace);
           }
         });
+      }
+      if (message.type === 'test-tree-set-sort') {
+        setSortBy(message.payload.sortBy);
       }
       if (message.type === 'test-tree-action-state') {
         setActionState(message.payload);
@@ -129,6 +133,7 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
           <TreeView
             testTree={testTree}
             editorFiles={editorFiles}
+            sortBy={sortBy}
             onRunTest={onRunTest}
             onFetchTestTree={onFetchTestTree}
             onUpdateOpenTestTreeNode={onUpdateOpenTestTreeNode}

@@ -12,6 +12,7 @@ import type { FilterContext } from '../../utils/filterTags';
 interface TreeViewProps {
   testTree: TestTree;
   editorFiles: EditorFilesPayload;
+  sortBy: SortBy;
   onRunTest: (testRuns: Array<TestRun>) => void;
   onFetchTestTree: () => void;
   onOpenTestResult: (workspaceId: string, testId: string) => void;
@@ -21,6 +22,7 @@ interface TreeViewProps {
 const TreeView: React.FC<TreeViewProps> = ({
   testTree,
   editorFiles,
+  sortBy,
   onRunTest,
   onFetchTestTree,
   onUpdateOpenTestTreeNode,
@@ -68,6 +70,7 @@ const TreeView: React.FC<TreeViewProps> = ({
               key={workspace.id}
               workspace={workspace}
               visible={visible}
+              sortBy={sortBy}
               onRunTest={onRunTest}
               onFetchTestTree={onFetchTestTree}
               onOpenTestResult={onOpenTestResult}

@@ -95,6 +95,8 @@ type TestTreeFilter = {
 
 type VisibleItem = TestTreeWorkspaceNode | TestTreeGroupNode | Test;
 
+type SortBy = "location" | "status";
+
 type EditorFilesPayload = {
   activeFile?: string;
   openFiles: Array<string>;
@@ -217,6 +219,7 @@ type ExtensionToWebviewMessage =
   | { type: "test-tree-update"; payload: TestTreeUpdate }
   | { type: "editor-files"; payload: EditorFilesPayload }
   | { type: "test-tree-action-state"; payload: TestTreeActionState }
+  | { type: "test-tree-set-sort"; payload: { sortBy: SortBy } }
   | { type: "test-result"; payload: TestResultPayload };
 
 type WebviewToExtensionMessage =

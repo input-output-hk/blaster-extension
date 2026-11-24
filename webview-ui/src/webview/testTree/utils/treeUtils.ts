@@ -49,6 +49,29 @@ export const getGroupInfo = (node: TestTreeGroupNode): TestGroupInfo => {
   };
 };
 
+const STATUS_RANK: Record<RunStatus, number> = {
+  invalid: 0,
+  error: 1,
+  undetermined: 2,
+  valid: 3,
+  empty: 4,
+};
+
+/** Orders tests by their start position in the file: line, then column. */
+const compareTestsByLocation = (a: Test, b: Test): number => {
+  const start = a.location.range.start;
+  const otherStart = b.location.range.start;
+  return start.line - otherStart.line || start.character - otherStart.character;
+};
+
+/** Orders tests by status (falsified, error, undetermined, valid, not run), then by location. */
+const compareTestsByStatus = (a: Test, b: Test): number =>
+  STATUS_RANK[a.status] - STATUS_RANK[b.status] || compareTestsByLocation(a, b);
+
+/** Returns a sorted copy of a file's tests. The input array is not changed. */
+export const sortTests = (tests: Array<Test>, sortBy: SortBy): Array<Test> =>
+  [...tests].sort(sortBy === 'status' ? compareTestsByStatus : compareTestsByLocation);
+
 type FilterKeywords = {
   positiveKeywords: Array<string>;
   negativeKeywords: Array<string>;
