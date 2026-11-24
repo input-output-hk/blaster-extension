@@ -45,8 +45,11 @@ Compilation builds the extension host into `out/` and React webviews into `build
 Open this extension project in VS Code and launch its Extension Development Host
 with F5. In that window, open a prepared Lean project and select the Blaster view.
 
-`npm test` checks action ordering, cancellation, result persistence, toolbar state,
-helper text, and tree expansion (including error-only folders) without requiring Lean.
+`npm test` runs the extension tests in `tests/` with Node's test runner, then the
+webview tests in `webview-ui` with Vitest. They check action ordering, cancellation,
+result persistence, toolbar state, helper text, tree expansion (including error-only
+folders), the tree view's messages, and the tree's screens and row actions, without
+requiring Lean or VS Code.
 
 Use **Blaster: Refresh Test Tree** to discover properties. Run individual tests,
 files, folders, workspaces, or **Blaster: Run All Tests**. Opening a test result

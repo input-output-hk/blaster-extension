@@ -162,7 +162,7 @@
     }
   },
   "scripts": {
-    "test": "npm run compile:extension && node --test tests/*.test.cjs",
+    "test": "npm run compile:extension && node --test tests/*.test.cjs && npm test -w webview-ui",
     "vscode:prepublish": "npm run compile",
     "compile": "npm run compile:extension && npm run compile:webview",
     "compile:extension": "tsc -p ./",

@@ -12,11 +12,22 @@ export default defineConfig({
   publicDir: resolve(__dirname, 'public'),
   test: {
     root: __dirname,
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     environment: 'node',
+    setupFiles: ['src/test/setup.ts'],
     coverage: {
-      include: ['src/webview/testTree/utils/**'],
-      exclude: ['**/*.test.ts'],
+      include: [
+        'src/webview/testTree/index.tsx',
+        'src/webview/testTree/utils/**',
+        'src/webview/testTree/components/TreeView/**',
+        'src/webview/testTree/components/ErrorView.tsx',
+        'src/webview/testTree/components/EmptyView.tsx',
+        'src/webview/testTree/components/MissingDependencyView.tsx',
+        'src/hooks/useTreeItemState.ts',
+        'src/components/TestStatusIcon.tsx',
+        'src/utils/format.ts',
+      ],
+      exclude: ['**/*.test.ts', '**/*.test.tsx', 'src/test/**'],
     },
   },
   build: {
