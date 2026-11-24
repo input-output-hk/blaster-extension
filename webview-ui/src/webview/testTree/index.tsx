@@ -110,7 +110,7 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
 
   return (
     <div className="flex h-full flex-col">
-      <HelperText testTree={testTree} actionState={actionState} />
+      {activeView !== 'loading' && <HelperText testTree={testTree} actionState={actionState} />}
       <div className="min-h-0 flex-1">
         {activeView === 'loading' && <LoadingView />}
         {activeView === 'error' &&
