@@ -108,16 +108,32 @@
       },
       {
         "command": "blaster-extension.sortTestsByLocation",
-        "title": "Blaster: Sort by Location",
-        "toggled": "blaster.testTreeSortBy == location"
+        "title": "Blaster: Sort by Location"
       },
       {
         "command": "blaster-extension.sortTestsByStatus",
-        "title": "Blaster: Sort by Status",
-        "toggled": "blaster.testTreeSortBy == status"
+        "title": "Blaster: Sort by Status"
+      },
+      {
+        "command": "blaster-extension.sortTestsByLocationSelected",
+        "title": "✓ Blaster: Sort by Location"
+      },
+      {
+        "command": "blaster-extension.sortTestsByStatusSelected",
+        "title": "✓ Blaster: Sort by Status"
       }
     ],
     "menus": {
+      "commandPalette": [
+        {
+          "command": "blaster-extension.sortTestsByLocationSelected",
+          "when": "false"
+        },
+        {
+          "command": "blaster-extension.sortTestsByStatusSelected",
+          "when": "false"
+        }
+      ],
       "view/title": [
         {
           "command": "blaster-extension.refreshTestTree",
@@ -151,12 +167,22 @@
         },
         {
           "command": "blaster-extension.sortTestsByLocation",
-          "when": "view == blaster-test-tree",
+          "when": "view == blaster-test-tree && blaster.testTreeSortBy != location",
+          "group": "overflow_sort@1"
+        },
+        {
+          "command": "blaster-extension.sortTestsByLocationSelected",
+          "when": "view == blaster-test-tree && blaster.testTreeSortBy == location",
           "group": "overflow_sort@1"
         },
         {
           "command": "blaster-extension.sortTestsByStatus",
-          "when": "view == blaster-test-tree",
+          "when": "view == blaster-test-tree && blaster.testTreeSortBy != status",
+          "group": "overflow_sort@2"
+        },
+        {
+          "command": "blaster-extension.sortTestsByStatusSelected",
+          "when": "view == blaster-test-tree && blaster.testTreeSortBy == status",
           "group": "overflow_sort@2"
         }
       ]

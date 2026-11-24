@@ -31,6 +31,8 @@ export default class TestTreeView {
       vscode.commands.registerCommand('blaster-extension.collapseAllTests', this.collapseAllTests.bind(this)),
       vscode.commands.registerCommand('blaster-extension.sortTestsByLocation', this.sortTestsByLocation.bind(this)),
       vscode.commands.registerCommand('blaster-extension.sortTestsByStatus', this.sortTestsByStatus.bind(this)),
+      vscode.commands.registerCommand('blaster-extension.sortTestsByLocationSelected', this.sortTestsByLocation.bind(this)),
+      vscode.commands.registerCommand('blaster-extension.sortTestsByStatusSelected', this.sortTestsByStatus.bind(this)),
       vscode.commands.registerCommand('blaster-extension.showOutput', this.showOutput.bind(this)),
 
       vscode.window.onDidChangeActiveTextEditor(this.sendEditorFilesToWebview.bind(this)),
