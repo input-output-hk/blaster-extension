@@ -1,52 +1,12 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
-const Module = require('node:module');
 const childProcess = require('node:child_process');
-const { setTimeout: delay } = require('node:timers/promises');
 const { join } = require('node:path');
 
-const vscode = {
-  CancellationError: class CancellationError extends Error {},
-  EventEmitter: class {
-    listeners = new Set();
-    event = callback => {
-      this.listeners.add(callback);
-      return { dispose: () => this.listeners.delete(callback) };
-    };
-    fire(value) { for (const callback of this.listeners) callback(value); }
-    dispose() { this.listeners.clear(); }
-  },
-  ThemeColor: class {},
-  commands: {
-    registerCommand: () => ({ dispose() {} }),
-    executeCommand: async () => {},
-  },
-  window: {
-    showErrorMessage: async () => {},
-    registerWebviewViewProvider: () => ({ dispose() {} }),
-    onDidChangeActiveTextEditor: () => ({ dispose() {} }),
-    onDidChangeVisibleTextEditors: () => ({ dispose() {} }),
-    visibleTextEditors: [],
-    tabGroups: { all: [], onDidChangeTabs: () => ({ dispose() {} }) },
-  },
-  TabInputText: class {},
-  workspace: { workspaceFolders: [{ uri: { fsPath: process.cwd() } }] },
-};
-const load = Module._load;
-Module._load = function (id, ...args) {
-  return id === 'vscode' ? vscode : load.call(this, id, ...args);
-};
-const TestStore = require('../out/services/testStore').default;
-const TestTreeView = require('../out/modules/testTreeView').default;
-Module._load = load;
+const { vscode, requireOut, until } = require('./helpers/extension.cjs');
 
-const until = async predicate => {
-  const deadline = Date.now() + 3000;
-  while (!await predicate()) {
-    assert.ok(Date.now() < deadline, 'Timed out waiting for test condition');
-    await delay(10);
-  }
-};
+const TestStore = requireOut('services/testStore').default;
+const TestTreeView = requireOut('modules/testTreeView').default;
 
 const makeTree = () => {
   const tests = ['A.lean:1:1', 'A.lean:2:1', 'B.lean:1:1'].map(id => {

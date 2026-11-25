@@ -9,7 +9,7 @@ const { renderToStaticMarkup } = require('react-dom/server');
 const toggles = [];
 const load = Module._load;
 const extensions = { '.ts': require.extensions['.ts'], '.tsx': require.extensions['.tsx'] };
-let TreeViewWorkspace, updateOpenTestTreeNode;
+let TreeViewWorkspace, updateOpenTestTreeNode, getVisibleItems;
 try {
   Module._load = function (id, ...args) {
     if (id === '@vscode-elements/react-elements') return { VscodeTreeItem: 'vscode-tree-item' };
@@ -29,6 +29,7 @@ try {
   }
   TreeViewWorkspace = require('../webview-ui/src/webview/testTree/components/TreeView/TreeViewWorkspace.tsx').default;
   ({ updateOpenTestTreeNode } = require('../webview-ui/src/webview/testTree/utils/treeUpdateUtils.ts'));
+  ({ getVisibleItems } = require('../webview-ui/src/webview/testTree/utils/treeUtils.ts'));
 } finally {
   Module._load = load;
   for (const [extension, handler] of Object.entries(extensions)) {
@@ -60,7 +61,8 @@ for (const hasTests of [false, true]) {
     const updates = [];
     toggles.length = 0;
     renderToStaticMarkup(React.createElement(TreeViewWorkspace, {
-      workspace, onRunTest() {}, onFetchTestTree() {}, onOpenTestResult() {},
+      workspace, visible: getVisibleItems(tree, {}, { openFiles: new Set() }),
+      onRunTest() {}, onFetchTestTree() {}, onOpenTestResult() {}, onContextMenu() {},
       onUpdateOpenTestTreeNode(isOpen, workspaceId, path) {
         updates.push({ isOpen, workspaceId, path });
         tree = updateOpenTestTreeNode(tree, isOpen, workspaceId, path);
