@@ -38,6 +38,7 @@ export default class TestTreeView {
 
     this.context.testStore.onTestTreeUpdate(this.onTestTreeUpdate.bind(this));
     this.onActionStateUpdate(this.context.testStore.getActionState());
+    this.setHasTestTree(false);
   }
 
   public refreshTestTree(): void {
@@ -48,8 +49,12 @@ export default class TestTreeView {
 
   private onWebviewResolved(webview: vscode.Webview, view: vscode.WebviewView): void {
     this.webview = webview;
+    // A new or closed view shows no tree until one is sent
+    this.setHasTestTree(false);
     view.onDidDispose(() => {
-      if (this.webview === webview) this.webview = null;
+      if (this.webview !== webview) return;
+      this.webview = null;
+      this.setHasTestTree(false);
     }, undefined, this.context.extension.subscriptions);
 
     this.webview.onDidReceiveMessage(
@@ -153,6 +158,7 @@ export default class TestTreeView {
     statusBarItem.text = DEPENDENCY_STATUS;
     statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
     statusBarItem.show();
+    this.setHasTestTree(false);
     void this.webview?.postMessage({ type: 'test-tree-dependency-error' } satisfies ExtensionToWebviewMessage);
   }
 
@@ -209,6 +215,7 @@ export default class TestTreeView {
   }
 
   private sendTestTreeErrorToWebview(): void {
+    this.setHasTestTree(false);
     void this.webview?.postMessage({ type: 'test-tree-error' } satisfies ExtensionToWebviewMessage);
   }
 
@@ -218,6 +225,8 @@ export default class TestTreeView {
 
   private sendTestTreeToWebview(testTree: TestTree): void {
     if (this.webview !== null) {
+      // The webview shows the tree, not the empty view, when there is at least one workspace
+      this.setHasTestTree(Object.keys(testTree.workspaces).length > 0);
       this.webview.postMessage({ type: 'test-tree', payload: { testTree } } satisfies ExtensionToWebviewMessage);
     }
   }
@@ -243,6 +252,11 @@ export default class TestTreeView {
     if (this.webview !== null) {
       this.webview.postMessage({ type: 'test-tree-update', payload } satisfies ExtensionToWebviewMessage);
     }
+  }
+
+  private setHasTestTree(hasTestTree: boolean): void {
+    void vscode.commands.executeCommand('setContext', 'blaster.hasTestTree', hasTestTree)
+      .then(undefined, error => this.reportError(error));
   }
 
   private onActionStateUpdate(payload: TestTreeActionState): void {

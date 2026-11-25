@@ -405,3 +405,152 @@ test('cancelling a retry from the missing screen restores the screen and status 
   assert.equal(context.statusBarItem.text, '$(error) Dependency Error');
   assert.ok(!messages.some(message => message.type === 'test-tree' || message.type === 'test-tree-error'));
 });
+
+const titleMenus = require('../package.json').contributes.menus['view/title'];
+// Evaluates each view/title `when` clause against the context keys the extension set
+const visibleButtons = contexts => titleMenus.filter(({ when }) => when.split('&&').every(clause => {
+  const term = clause.trim();
+  const equals = term.match(/^([\w.]+) == ([\w.-]+)$/);
+  if (equals) return contexts.get(equals[1]) === equals[2];
+  const key = term.match(/^(!?)([\w.]+)$/);
+  assert.ok(key, `Unsupported when clause: ${term}`);
+  return Boolean(contexts.get(key[2])) !== (key[1] === '!');
+})).map(({ command }) => command.replace('blaster-extension.', '')).sort();
+
+const IDLE_TREE = ['clearAllTests', 'collapseAllTests', 'refreshTestTree', 'runAllTests', 'showOutput'];
+const IDLE_NO_TREE = ['refreshTestTree', 'showOutput'];
+const BUSY_TREE = ['clearAllTests', 'collapseAllTests', 'showOutput', 'stopAllTests'];
+const BUSY_NO_TREE = ['showOutput', 'stopAllTests'];
+
+const openView = (t, store, context) => {
+  const contexts = new Map([['view', 'blaster-test-tree']]);
+  t.mock.method(vscode.commands, 'executeCommand', async (name, key, value) => {
+    if (name === 'setContext') contexts.set(key, value);
+  });
+  const view = new TestTreeView();
+  view.activate(context);
+  const resolve = () => {
+    const messages = [];
+    let receive;
+    let dispose;
+    view.onWebviewResolved({
+      postMessage: message => { messages.push(message); return Promise.resolve(true); },
+      onDidReceiveMessage: callback => { receive = callback; },
+    }, { onDidDispose: callback => { dispose = callback; } });
+    // A cached tree loads without a fetch, so wait for its message
+    const shown = () => until(() => messages.some(message => message.type === 'test-tree'));
+    return { messages, shown, receive: message => receive(message), dispose: () => dispose() };
+  };
+  const settle = () => until(() => view.pendingFetch === null && contexts.get('blaster.testTreeBusy') === false);
+  return { resolve, settle, buttons: () => visibleButtons(contexts) };
+};
+
+// Holds the next call until released, and rejects it when the action is stopped
+const hold = method => {
+  let release;
+  method.mock.mockImplementation(signal => new Promise((resolve, reject) => {
+    release = resolve;
+    signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+  }));
+  return { started: () => release !== undefined, release: value => release(value) };
+};
+
+test('view buttons follow the loading, empty and tree screens, and Refresh keeps the tree', async t => {
+  const { store, context } = await setup(t);
+  const { resolve, settle, buttons } = openView(t, store, context);
+  const { tree } = makeTree();
+  assert.deepEqual(buttons(), IDLE_NO_TREE);
+
+  const getTestTree = t.mock.method(store, 'getTestTree', async () => undefined);
+  let discovery = hold(store.command.discover);
+  const { receive } = resolve();
+  receive({ type: 'webview-ready' });
+  await until(discovery.started);
+  assert.deepEqual(buttons(), BUSY_NO_TREE);
+  getTestTree.mock.restore();
+  discovery.release({ testTree: { workspaces: {} }, fileErrors: [] });
+  await settle();
+  assert.deepEqual(buttons(), IDLE_NO_TREE);
+
+  store.command.discover.mock.mockImplementation(async () => ({ testTree: structuredClone(tree), fileErrors: [] }));
+  receive({ type: 'test-tree-fetch' });
+  await settle();
+  assert.deepEqual(buttons(), IDLE_TREE);
+
+  discovery = hold(store.command.discover);
+  receive({ type: 'test-tree-fetch' });
+  await until(discovery.started);
+  assert.deepEqual(buttons(), BUSY_TREE);
+  discovery.release({ testTree: structuredClone(tree), fileErrors: [] });
+  await settle();
+  assert.deepEqual(buttons(), IDLE_TREE);
+});
+
+test('view buttons hide on both error screens and return after recovery or a cancelled retry', async t => {
+  const { store, context } = await setup(t);
+  const { resolve, settle, buttons } = openView(t, store, context);
+  const { tree } = makeTree();
+  const discover = async () => ({ testTree: structuredClone(tree), fileErrors: [] });
+  const { receive, shown } = resolve();
+  receive({ type: 'webview-ready' });
+  await shown();
+  assert.deepEqual(buttons(), IDLE_TREE);
+
+  store.command.discover.mock.mockImplementation(async () => { throw new Error('discovery failed'); });
+  receive({ type: 'test-tree-fetch' });
+  await settle();
+  assert.deepEqual(buttons(), IDLE_NO_TREE);
+  store.command.discover.mock.mockImplementation(discover);
+  receive({ type: 'test-tree-fetch' });
+  await settle();
+  assert.deepEqual(buttons(), IDLE_TREE);
+
+  store.command.checkDependencies.mock.mockImplementation(async () => false);
+  receive({ type: 'test-tree-fetch' });
+  await settle();
+  assert.deepEqual(buttons(), IDLE_NO_TREE);
+  const check = hold(store.command.checkDependencies);
+  receive({ type: 'test-tree-fetch' });
+  await until(check.started);
+  assert.deepEqual(buttons(), BUSY_NO_TREE);
+  store.stopAll();
+  await settle();
+  assert.deepEqual(buttons(), IDLE_NO_TREE);
+  store.command.checkDependencies.mock.mockImplementation(async () => true);
+  receive({ type: 'test-tree-fetch' });
+  await settle();
+  assert.deepEqual(buttons(), IDLE_TREE);
+
+  const discovery = hold(store.command.discover);
+  receive({ type: 'test-tree-fetch' });
+  await until(discovery.started);
+  assert.deepEqual(buttons(), BUSY_TREE);
+  store.stopAll();
+  await settle();
+  assert.deepEqual(buttons(), IDLE_TREE);
+});
+
+test('closing the view hides the tree buttons until a reopened view shows the tree', async t => {
+  const { store, context } = await setup(t);
+  const { resolve, buttons } = openView(t, store, context);
+  const first = resolve();
+  first.receive({ type: 'webview-ready' });
+  await first.shown();
+  assert.deepEqual(buttons(), IDLE_TREE);
+  first.dispose();
+  assert.deepEqual(buttons(), IDLE_NO_TREE);
+
+  const second = resolve();
+  assert.deepEqual(buttons(), IDLE_NO_TREE);
+  second.receive({ type: 'webview-ready' });
+  await second.shown();
+  assert.deepEqual(buttons(), IDLE_TREE);
+  first.dispose();
+  assert.deepEqual(buttons(), IDLE_TREE);
+
+  const third = resolve();
+  assert.deepEqual(buttons(), IDLE_NO_TREE);
+  third.receive({ type: 'webview-ready' });
+  await third.shown();
+  assert.deepEqual(buttons(), IDLE_TREE);
+});
