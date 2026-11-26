@@ -88,7 +88,7 @@ const TreeViewTest: React.FC<TreeViewTestProps> = ({
           disabled={!isRunnable}
           onClickCapture={handleRunTest}
           data-tooltip-id="tree-node-action"
-          data-tooltip-content="Run Test"
+          data-tooltip-content="Run Proof"
         >
           <i className="codicon codicon-play" />
         </button>

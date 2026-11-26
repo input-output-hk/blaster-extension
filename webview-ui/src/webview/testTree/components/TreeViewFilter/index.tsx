@@ -175,7 +175,7 @@ const TreeViewFilter: React.FC<Props> = ({ filter, placeholder = 'Filter (e.g. t
           }
           onClick={handleFilterToggle}
           data-tooltip-id="tree-node-action"
-          data-tooltip-content="Filter"
+          data-tooltip-content="More Filters..."
         >
           <i
             className={

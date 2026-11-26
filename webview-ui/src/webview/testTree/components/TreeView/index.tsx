@@ -82,7 +82,7 @@ const TreeView: React.FC<TreeViewProps> = ({
         onRunTest={onRunTest}
         onOpenTestResult={onOpenTestResult}
       />
-      <Tooltip id="tree-node-action" place="bottom" />
+      <Tooltip id="tree-node-action" place="bottom-end" />
     </div>
   );
 };
