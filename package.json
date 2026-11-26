@@ -79,23 +79,24 @@
     "commands": [
       {
         "command": "blaster-extension.refreshTestTree",
-        "title": "Blaster: Refresh Test Tree",
+        "title": "Blaster: Refresh Tree",
         "icon": "$(refresh)"
       },
       {
         "command": "blaster-extension.runAllTests",
-        "title": "Blaster: Run All Tests",
+        "title": "Blaster: Run All Proofs",
         "icon": "$(run-all)"
       },
       {
         "command": "blaster-extension.stopAllTests",
-        "title": "Blaster: Stop All Tests",
+        "title": "Blaster: Cancel",
         "icon": "$(stop-circle)",
         "enablement": "blaster.testTreeBusy"
       },
       {
         "command": "blaster-extension.showOutput",
-        "title": "Blaster: Show Output",
+        "title": "Show Output",
+        "category": "Blaster",
         "icon": "$(terminal)"
       },
       {

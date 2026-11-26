@@ -71,7 +71,7 @@ const TreeViewWorkspace: React.FC<TreeViewWorkspaceProps> = ({
           disabled={!isRunnable}
           onClickCapture={handleRunWorkspace}
           data-tooltip-id="tree-node-action"
-          data-tooltip-content="Run Tests"
+          data-tooltip-content="Run Proofs"
         >
           <i className="codicon codicon-run-all" />
         </button>

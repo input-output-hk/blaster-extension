@@ -48,14 +48,14 @@ with F5. In that window, open a prepared Lean project and select the Blaster vie
 `npm test` checks action ordering, cancellation, result persistence, toolbar state,
 helper text, and tree expansion (including error-only folders) without requiring Lean.
 
-Use **Blaster: Refresh Test Tree** to discover properties. Run individual tests,
-files, folders, workspaces, or **Blaster: Run All Tests**. Opening a test result
+Use **Blaster: Refresh Tree** to discover properties. Run individual tests,
+files, folders, workspaces, or **Blaster: Run All Proofs**. Opening a test result
 shows its latest state; **Blaster: Clear All Results** clears completed runs.
 Expansion state is retained during discovery in the current extension session,
 including folders containing only discovery errors.
 
 Discovery, validation runs, and clearing results share a single action queue.
-While work is pending, **Blaster: Stop All Tests** replaces the toolbar's run and
+While work is pending, **Blaster: Cancel** replaces the toolbar's run and
 refresh buttons. It kills the active CLI process and its children, discards queued
 actions, and returns unfinished properties to idle without deleting received results.
 Tree expansion and result viewing remain available while jobs run.

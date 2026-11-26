@@ -121,7 +121,7 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
           disabled={!isRunnable}
           onClickCapture={handleRunGroup}
           data-tooltip-id="tree-node-action"
-          data-tooltip-content="Run Tests"
+          data-tooltip-content="Run Proofs"
         >
           <i className="codicon codicon-run-all" />
         </button>
