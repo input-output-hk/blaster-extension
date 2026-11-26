@@ -4,6 +4,7 @@ import { isAbsolute, relative, resolve as resolvePath, sep } from 'node:path';
 import { execFile, spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 
+import { detectLanguages } from './generators/project';
 import sampleResult from '../utils/sampleResult';
 import { getTestRunLocation } from '../utils/testRun';
 import { BlasterContext } from '../extension';
@@ -101,6 +102,13 @@ const toRunStatus = ({ status, expectedStatus }: CommandResult): RunStatus =>
 
 const toPosition = ({ line, column }: CommandLocation): TestRangePosition => ({ line: line - 1, character: column - 1 });
 
+/**
+ * Tells whether a workspace folder needs Lean discovery (and therefore lean-blaster).
+ */
+function isLeanFolder(folder: vscode.WorkspaceFolder): boolean {
+  return detectLanguages(folder.uri.fsPath).lean;
+}
+
 const compare = (a: TestRangePosition, b: TestRangePosition): number => a.line - b.line || a.character - b.character;
 
 export default class Command {
@@ -126,7 +134,7 @@ export default class Command {
 
   // Runs once a folder is open. Without a cwd, ENOENT means lean-blaster (or its interpreter) is not found.
   public checkDependencies(signal: AbortSignal): Promise<boolean> {
-    if (!vscode.workspace.workspaceFolders?.length) return Promise.resolve(true);
+    if (!vscode.workspace.workspaceFolders?.some(isLeanFolder)) return Promise.resolve(true);
     signal.throwIfAborted();
     this.context.outputChannel.appendLine('> lean-blaster --version');
 
@@ -161,7 +169,7 @@ export default class Command {
     for (const workspace of workspaces.values()) {
       const tests: Array<DiscoveredTest> = [];
       const errors: Array<{ file?: string; message: string }> = [];
-      const exitCode = await this.exec(['discover', workspace.path, '--json'], workspace.path, event => {
+      const exitCode = !detectLanguages(workspace.path).lean ? 0 : await this.exec(['discover', workspace.path, '--json'], workspace.path, event => {
         if (event.event === 'diagnostic') {
           this.logDiagnostic(event.diagnostic);
           const { severity, message, location } = event.diagnostic;
