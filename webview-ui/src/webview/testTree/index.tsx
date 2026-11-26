@@ -104,6 +104,11 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
     } as WebviewToExtensionMessage);
   };
 
+  /** Asks the extension to open a test's source location in the editor. */
+  const onOpenTestLocation = (location: TestLocation): void => {
+    vscode.postMessage({ type: 'test-tree-open-location', payload: location } as WebviewToExtensionMessage);
+  };
+
   const onOpenTestResult = (workspaceId: string, testId: string) => {
     vscode.postMessage({ type: 'test-tree-open-result', payload: { workspaceId, testId } } as WebviewToExtensionMessage);
   };
@@ -133,6 +138,7 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
             onFetchTestTree={onFetchTestTree}
             onUpdateOpenTestTreeNode={onUpdateOpenTestTreeNode}
             onOpenTestResult={onOpenTestResult}
+            onOpenTestLocation={onOpenTestLocation}
           />
         }
       </div>

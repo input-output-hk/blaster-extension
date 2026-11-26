@@ -17,6 +17,7 @@ interface TreeViewGroupProps {
   onRunTest: (testRuns: Array<TestRun>) => void;
   onFetchTestTree: () => void;
   onOpenTestResult: (workspaceId: string, testId: string) => void;
+  onOpenTestLocation: (location: TestLocation) => void;
   onUpdateOpenTestTreeNode: (isOpen: boolean, workspaceId: string, group?: Array<string>) => void;
   onContextMenu: (event: React.MouseEvent, item: TestTreeItem) => void;
 }
@@ -30,6 +31,7 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
   onFetchTestTree,
   onUpdateOpenTestTreeNode,
   onOpenTestResult,
+  onOpenTestLocation,
   onContextMenu
 }) => {
   const {
@@ -44,6 +46,10 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
   const isRunnable = canRun && error === undefined;
   const isGenerator = node.type === 'generator';
   const label = isGenerator ? getGeneratorLabel(node.name) : node.name;
+  const generatorState = isGenerator ? (node as TestTreeGeneratorNode).state : undefined;
+  const generationError = generatorState?.kind === 'error' ? generatorState.message : undefined;
+  const isGenerating = generatorState?.kind === 'generating';
+  const canRetry = error !== undefined || generationError !== undefined;
 
   const treeItemRef = useTreeItemState({
     onToggleCollapsed: (isCollapsed) => {
@@ -76,8 +82,10 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
 
   return (
     <VscodeTreeItem ref={treeItemRef} open={node.isOpen} onContextMenu={handleContextMenu}>
-      {error !== undefined
+      {canRetry
         ? <i className="mr-0.5 codicon codicon-error text-[var(--vscode-errorForeground)]" />
+        : isGenerating
+        ? <i className="mr-0.5 codicon codicon-loading codicon-modifier-spin" />
         : <TestStatusIcon
             isWaiting={isWaiting}
             isRunning={isRunning}
@@ -100,13 +108,25 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
               Discovery Failed
             </span>
           }
+          {isGenerating &&
+            <span className="ml-1 opacity-60">Generating…</span>
+          }
+          {generationError !== undefined &&
+            <span
+              className="ml-1 text-[var(--vscode-errorForeground)]"
+              data-tooltip-id="tree-node-action"
+              data-tooltip-content={generationError}
+            >
+              Generation Failed
+            </span>
+          }
           {error === undefined && time !== undefined && time > 0 && !isRunning && !isWaiting &&
             <span className="ml-1 opacity-60">
               {formatRunTime(time)}
             </span>
           }
         </span>
-        {error !== undefined &&
+        {canRetry &&
           <button
             type="button"
             className="flex h-5 w-5 shrink-0 items-center justify-center border-0 bg-transparent p-0 opacity-60 hover:opacity-100 cursor-pointer"
@@ -142,6 +162,7 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
             onRunTest={onRunTest}
             onFetchTestTree={onFetchTestTree}
             onOpenTestResult={onOpenTestResult}
+            onOpenTestLocation={onOpenTestLocation}
             onUpdateOpenTestTreeNode={onUpdateOpenTestTreeNode}
             onContextMenu={onContextMenu}
           />
@@ -154,6 +175,7 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
             test={test}
             onRunTest={onRunTest}
             onOpenTestResult={onOpenTestResult}
+            onOpenTestLocation={onOpenTestLocation}
             onContextMenu={onContextMenu}
           />
         ))

@@ -15,6 +15,7 @@ interface TreeViewProps {
   onRunTest: (testRuns: Array<TestRun>) => void;
   onFetchTestTree: () => void;
   onOpenTestResult: (workspaceId: string, testId: string) => void;
+  onOpenTestLocation: (location: TestLocation) => void;
   onUpdateOpenTestTreeNode: (isOpen: boolean, workspaceId: string, group?: Array<string>) => void;
 }
 
@@ -24,7 +25,8 @@ const TreeView: React.FC<TreeViewProps> = ({
   onRunTest,
   onFetchTestTree,
   onUpdateOpenTestTreeNode,
-  onOpenTestResult
+  onOpenTestResult,
+  onOpenTestLocation
 }) => {
   const contextMenuRef = useRef<TreeViewContextMenuRef>(null);
   const [filter, setFilter] = useState<TestTreeFilter>({});
@@ -71,6 +73,7 @@ const TreeView: React.FC<TreeViewProps> = ({
               onRunTest={onRunTest}
               onFetchTestTree={onFetchTestTree}
               onOpenTestResult={onOpenTestResult}
+              onOpenTestLocation={onOpenTestLocation}
               onUpdateOpenTestTreeNode={onUpdateOpenTestTreeNode}
               onContextMenu={handleContextMenu}
             />

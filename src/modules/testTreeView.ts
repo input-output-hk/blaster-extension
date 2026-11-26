@@ -33,7 +33,8 @@ export default class TestTreeView {
       vscode.window.onDidChangeActiveTextEditor(this.sendEditorFilesToWebview.bind(this)),
       vscode.window.onDidChangeVisibleTextEditors(this.sendEditorFilesToWebview.bind(this)),
       vscode.window.tabGroups.onDidChangeTabs(this.sendEditorFilesToWebview.bind(this)),
-      context.testStore.onActionStateUpdate(this.onActionStateUpdate.bind(this))
+      context.testStore.onActionStateUpdate(this.onActionStateUpdate.bind(this)),
+      context.testStore.onGeneratorStateUpdate(this.getTestTree.bind(this))
     );
 
     this.context.testStore.onTestTreeUpdate(this.onTestTreeUpdate.bind(this));
@@ -68,6 +69,9 @@ export default class TestTreeView {
             break;
           case 'test-tree-open-result':
             this.openTestResult(message.payload);
+            break;
+          case 'test-tree-open-location':
+            this.openTestLocation(message.payload);
             break;
           case 'test-tree-update-open-state': {
             const { isOpen, workspaceId, group } = message.payload;
@@ -158,6 +162,14 @@ export default class TestTreeView {
 
   private runTests(payload: TestRunPayload): void {
     this.context.testStore.runTests(payload.testRuns).catch(error => this.reportError(error));
+  }
+
+  /**
+   * Opens a test's source file in the editor and selects its range (a Lean site or a UAL annotation).
+   */
+  private openTestLocation({ path, range: { start, end } }: TestLocation): void {
+    const selection = new vscode.Range(start.line, start.character, end.line, end.character);
+    vscode.window.showTextDocument(vscode.Uri.file(path), { selection }).then(undefined, error => this.reportError(error));
   }
 
   private runAllTests(): void {

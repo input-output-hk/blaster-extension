@@ -90,11 +90,19 @@ type TestTreeFileNode = TestTreeGroupNode & {
   error?: string;
 };
 
+// Bundle generation (`cabal run … --ndjson`) of one generator, after discovery
+type GeneratorState =
+  | { kind: "pending" }
+  | { kind: "generating" }
+  | { kind: "ready" }
+  | { kind: "error"; message: string };
+
 // A Haskell generator (Cabal executable target); its name is the full target
 type TestTreeGeneratorNode = TestTreeGroupNode & {
   type: "generator";
   tests: GenericMap<Test>;
   error?: string;
+  state?: GeneratorState;
 };
 
 type TestTreeItem =
@@ -243,6 +251,7 @@ type WebviewToExtensionMessage =
   | { type: "test-tree-fetch" }
   | { type: "test-tree-run"; payload: TestRunPayload }
   | { type: "test-tree-open-result"; payload: OpenResultPayload }
+  | { type: "test-tree-open-location"; payload: TestLocation }
   | { type: "test-tree-update-open-state"; payload: UpdateOpenStatePayload }
   | { type: "test-tree-open-folder" }
   | { type: "test-tree-open-install-guide" };

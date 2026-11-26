@@ -9,6 +9,7 @@ interface TreeViewTestProps {
   test: Test;
   onRunTest: (testRuns: Array<TestRun>) => void;
   onOpenTestResult: (workspaceId: string, testId: string) => void;
+  onOpenTestLocation: (location: TestLocation) => void;
   onContextMenu: (event: React.MouseEvent, item: TestTreeItem) => void;
 }
 
@@ -16,6 +17,7 @@ const TreeViewTest: React.FC<TreeViewTestProps> = ({
   test,
   onRunTest,
   onOpenTestResult,
+  onOpenTestLocation,
   onContextMenu
 }) => {
   const isHaskell = !isRunnableTest(test);
@@ -41,6 +43,11 @@ const TreeViewTest: React.FC<TreeViewTestProps> = ({
     onRunTest([{ workspaceId: test.workspaceId, tests: [{ uri, ids: [id] }] }]);
   };
 
+  /** Opens the test's source location (its Lean site or UAL annotation) when the row is clicked. */
+  const handleOpenLocation = (): void => {
+    onOpenTestLocation(test.location);
+  };
+
   const handleContextMenu = (event: React.MouseEvent): void => {
     event.preventDefault();
     event.stopPropagation();
@@ -48,7 +55,7 @@ const TreeViewTest: React.FC<TreeViewTestProps> = ({
   };
 
   return (
-    <VscodeTreeItem onContextMenu={handleContextMenu}>
+    <VscodeTreeItem onClick={handleOpenLocation} onContextMenu={handleContextMenu}>
       <TestStatusIcon
         isWaiting={test.isWaiting}
         isRunning={test.isRunning}

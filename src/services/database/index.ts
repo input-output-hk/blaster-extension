@@ -18,7 +18,8 @@ import {
   handleTestRunFailedEvent,
   handleTestUpdateEvent,
   handleTestResultEvent,
-  handleTestErrorEvent
+  handleTestErrorEvent,
+  updateHaskellDetails
 } from './methods';
 
 addRxPlugin(RxDBUpdatePlugin);
@@ -73,6 +74,13 @@ export default class Database {
 
   public async handleTestRunAll(): Promise<void> {
     return await handleTestRunAll(this.database!);
+  }
+
+  /**
+   * Fills in a Haskell property's title and content after its bundle was generated.
+   */
+  public async updateHaskellDetails(workspaceId: string, testId: string, details: { title?: string; content?: string }): Promise<void> {
+    return await updateHaskellDetails(this.database!, workspaceId, testId, details);
   }
 
   public async getTest(workspaceId: string, testId: string): Promise<Test> {

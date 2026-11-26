@@ -305,6 +305,22 @@ export const storeTestTree = async (database: Database, testTree: TestTree, open
 	return await fetchTestTree(database, openState);
 };
 
+/**
+ * Fills in a Haskell property's title and content (template properties only get them after generation).
+ */
+export const updateHaskellDetails = async (
+	database: Database,
+	workspaceId: string,
+	testId: string,
+	details: { title?: string; content?: string }
+): Promise<void> => {
+	const testDocument: TestDocument | null = await database.tests.findOne({
+		selector: { id: `${workspaceId}:${testId}` }
+	}).exec();
+	if (testDocument?.haskell === undefined) return;
+	await testDocument.update({ $set: { haskell: { ...testDocument.haskell, ...details } } });
+};
+
 export const clearTestResults = async (database: Database): Promise<void> => {
 	await database.testResults.find().remove();
 	await database.tests.find().update({ $set: { status: 'empty', time: undefined } });

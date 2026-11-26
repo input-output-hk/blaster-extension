@@ -14,6 +14,7 @@ type ListedProperty = {
 export type ListedGenerator = {
   target: string;
   cwd: string;
+  argv: Array<string>;
   properties: Array<ListedProperty> | null;
   propertyDiscoveryError?: string;
 };
@@ -31,6 +32,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function isPosition(value: unknown): value is TestRangePosition {
   return isRecord(value) && Number.isInteger(value.line) && Number.isInteger(value.character)
     && (value.line as number) >= 0 && (value.character as number) >= 0;
+}
+
+/**
+ * Tells whether a value is a string.
+ */
+function isString(value: unknown): value is string {
+  return typeof value === 'string';
 }
 
 /**
@@ -57,6 +65,7 @@ function isProperty(value: unknown): value is ListedProperty {
  */
 function isGenerator(value: unknown): value is ListedGenerator {
   if (!isRecord(value) || typeof value.target !== 'string' || value.target === '' || typeof value.cwd !== 'string') return false;
+  if (!Array.isArray(value.argv) || value.argv.length === 0 || !value.argv.every(isString)) return false;
   if (value.properties === null) return typeof value.propertyDiscoveryError === 'string';
   return Array.isArray(value.properties) && value.properties.every(isProperty);
 }

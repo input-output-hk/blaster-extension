@@ -15,6 +15,7 @@ interface TreeViewWorkspaceProps {
   onRunTest: (testRuns: Array<TestRun>) => void;
   onFetchTestTree: () => void;
   onOpenTestResult: (workspaceId: string, testId: string) => void;
+  onOpenTestLocation: (location: TestLocation) => void;
   onUpdateOpenTestTreeNode: (isOpen: boolean, workspaceId: string, group?: Array<string>) => void;
   onContextMenu: (event: React.MouseEvent, item: TestTreeItem) => void;
 }
@@ -25,6 +26,7 @@ const TreeViewWorkspace: React.FC<TreeViewWorkspaceProps> = ({
   onRunTest,
   onFetchTestTree,
   onOpenTestResult,
+  onOpenTestLocation,
   onUpdateOpenTestTreeNode,
   onContextMenu
 }) => {
@@ -90,6 +92,7 @@ const TreeViewWorkspace: React.FC<TreeViewWorkspaceProps> = ({
           onRunTest={onRunTest}
           onFetchTestTree={onFetchTestTree}
           onOpenTestResult={onOpenTestResult}
+          onOpenTestLocation={onOpenTestLocation}
           onUpdateOpenTestTreeNode={onUpdateOpenTestTreeNode}
           onContextMenu={onContextMenu}
         />

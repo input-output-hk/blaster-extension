@@ -28,6 +28,8 @@ export default class TestStore {
   private testEventError?: Error;
   private actionStateEmitter = new vscode.EventEmitter<TestTreeActionState>();
   public readonly onActionStateUpdate = this.actionStateEmitter.event;
+  private generatorStateEmitter = new vscode.EventEmitter<void>();
+  public readonly onGeneratorStateUpdate = this.generatorStateEmitter.event;
 
   private isTestTreeFetched: boolean = false;
   private testTreeOpenState: Record<string, boolean> = {};
@@ -49,13 +51,14 @@ export default class TestStore {
     await this.database.initialize();
     await this.command.initialize(context);
     this.generators.initialize(context);
+    this.generators.onStateChange(this.handleGeneratorStateChange.bind(this));
 
     this.command.onTestEvent(event => {
       this.eventQueue.push(event, error => {
         if (error) this.testEventError ??= error;
       });
     });
-    context.extension.subscriptions.push(this.actionStateEmitter, { dispose: () => this.stopAll() });
+    context.extension.subscriptions.push(this.actionStateEmitter, this.generatorStateEmitter, { dispose: () => this.stopAll() });
   }
 
   public getActionState(): TestTreeActionState {
@@ -112,7 +115,22 @@ export default class TestStore {
       return true;
     });
     this.currentAction?.controller.abort(error);
+    this.generators.stop();
     this.actionStateEmitter.fire(this.getActionState());
+  }
+
+  /**
+   * Tells the views that a Haskell generator started, finished or failed generating its bundle.
+   */
+  private handleGeneratorStateChange(): void {
+    this.generatorStateEmitter.fire();
+  }
+
+  /**
+   * Fills in a Haskell property's title and content once its generator's bundle exists.
+   */
+  private async updateHaskellDetails(workspaceId: string, testId: string, details: { title?: string; content?: string }): Promise<void> {
+    await this.database.updateHaskellDetails(workspaceId, testId, details);
   }
 
   private async flushTestEvents(): Promise<void> {
@@ -162,6 +180,7 @@ export default class TestStore {
   // Resolves undefined when lean-blaster is not found
   public async fetchTestTree(): Promise<TestTree | undefined> {
     return this.enqueueAction('fetch', async signal => {
+      this.generators.stop();
       try {
         this.isBlasterMissing = !(await this.command.checkDependencies(signal));
         if (this.isBlasterMissing) return undefined;
@@ -174,6 +193,7 @@ export default class TestStore {
         this.discoveryFileErrors = fileErrors;
         this.isTestTreeFetched = true;
         this.run = undefined;
+        this.generators.generate(this.updateHaskellDetails.bind(this));
         return this.applyFileErrors(storedTestTree);
       } catch (error) {
         if (!(error instanceof vscode.CancellationError)) {
@@ -201,8 +221,20 @@ export default class TestStore {
   private applyFileErrors(testTree: TestTree): TestTree {
     for (const workspace of Object.values(testTree.workspaces)) {
       this.applyWorkspaceFileErrors(workspace.id, workspace.nodes);
+      this.applyGeneratorStates(workspace.id, workspace.nodes);
     }
     return testTree;
+  }
+
+  /**
+   * Adds each Haskell generator's bundle generation state to its node.
+   */
+  private applyGeneratorStates(workspaceId: string, nodes: GenericMap<TestTreeGroupNode>): void {
+    for (const node of Object.values(nodes)) {
+      if (node.type !== 'generator') continue;
+      const state = this.generators.getState(workspaceId, node.name);
+      if (state) (node as TestTreeGeneratorNode).state = state;
+    }
   }
 
   private applyWorkspaceFileErrors(workspaceId: string, nodes: GenericMap<TestTreeGroupNode>): void {
@@ -284,6 +316,7 @@ export default class TestStore {
     this.database.onTestTreeUpdate(this.testTreeOpenState, payload => {
       if (payload.type === 'workspace' && payload.workspace.nodes) {
         this.applyWorkspaceFileErrors(payload.workspace.id, payload.workspace.nodes);
+        this.applyGeneratorStates(payload.workspace.id, payload.workspace.nodes);
       }
       callback(payload);
     });
