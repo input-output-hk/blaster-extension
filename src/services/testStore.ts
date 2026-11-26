@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { queue } from 'async';
 
 import Command from './command';
+import Generators from './generators';
 import Database from './database';
 import { BlasterContext } from '../extension';
 
@@ -18,6 +19,7 @@ type TestAction = {
 export default class TestStore {
   private context: BlasterContext = {} as BlasterContext;
   private command: Command;
+  private generators: Generators;
   private database: Database;
   private eventQueue: QueueObject<TestEvent>;
   private actionQueue: QueueObject<TestAction>;
@@ -35,6 +37,7 @@ export default class TestStore {
 
   constructor(context: vscode.ExtensionContext) {
     this.command = new Command();
+    this.generators = new Generators();
     this.database = new Database();
     this.eventQueue = queue<TestEvent>(this.handleTestEvent.bind(this), 1);
     this.actionQueue = queue<TestAction>(this.handleAction.bind(this), 1);
@@ -45,6 +48,7 @@ export default class TestStore {
 
     await this.database.initialize();
     await this.command.initialize(context);
+    this.generators.initialize(context);
 
     this.command.onTestEvent(event => {
       this.eventQueue.push(event, error => {
@@ -163,6 +167,8 @@ export default class TestStore {
         if (this.isBlasterMissing) return undefined;
         const { testTree, fileErrors } = await this.command.discover(signal);
         signal.throwIfAborted();
+        fileErrors.push(...await this.generators.discover(testTree, signal));
+        signal.throwIfAborted();
         const storedTestTree = await this.database.storeTestTree(testTree, this.testTreeOpenState);
         this.discoveryError = undefined;
         this.discoveryFileErrors = fileErrors;
@@ -200,7 +206,7 @@ export default class TestStore {
   }
 
   private applyWorkspaceFileErrors(workspaceId: string, nodes: GenericMap<TestTreeGroupNode>): void {
-    for (const { workspaceId: errorWorkspaceId, group, message } of this.discoveryFileErrors) {
+    for (const { workspaceId: errorWorkspaceId, group, message, type } of this.discoveryFileErrors) {
       if (errorWorkspaceId !== workspaceId) continue;
       let currentNodes = nodes;
       for (let index = 0; index < group.length; index++) {
@@ -208,10 +214,10 @@ export default class TestStore {
         const isFile = index === group.length - 1;
         const isOpen = this.testTreeOpenState[[workspaceId, ...group.slice(0, index + 1)].join(':')] ?? false;
         const node = currentNodes[name] ??= isFile
-          ? { type: 'file', name, isOpen, tests: {} } as TestTreeFileNode
+          ? { type: type ?? 'file', name, isOpen, tests: {} } as TestTreeFileNode
           : { type: 'folder', name, isOpen, nodes: {} } as TestTreeFolderNode;
         if (isFile) {
-          if (node.type === 'file') {
+          if (node.type !== 'folder') {
             (node as TestTreeFileNode).error = message;
           }
         } else if (node.type === 'folder') {
@@ -236,6 +242,9 @@ export default class TestStore {
   }
 
   public async runTests(testRuns?: Array<TestRun>): Promise<void> {
+    if (testRuns && this.generators.isHaskellRun(testRuns)) {
+      throw new Error('Running Haskell properties is not available yet.');
+    }
     return this.enqueueAction('run', async signal => {
       const runs = this.command.prepareTestRuns(testRuns);
       try {

@@ -12,6 +12,17 @@ type Test = {
   isRunning: boolean;
   time?: number;
   workspaceId: string;
+  haskell?: HaskellProperty;
+};
+
+// A UAL property found by a Haskell generator (scripts/blueprints/list-generators.js)
+type HaskellProperty = {
+  generator: string;
+  propertyId: string;
+  index: number;
+  kind: "explicit" | "template";
+  title?: string;
+  content?: string;
 };
 
 type TestRange = {
@@ -63,7 +74,7 @@ type TestTreeWorkspaceNode = TestWorkspace & {
 };
 
 type TestTreeGroupNode = {
-  type: "folder" | "file";
+  type: "folder" | "file" | "generator";
   name: string;
   isOpen: boolean;
 };
@@ -79,6 +90,13 @@ type TestTreeFileNode = TestTreeGroupNode & {
   error?: string;
 };
 
+// A Haskell generator (Cabal executable target); its name is the full target
+type TestTreeGeneratorNode = TestTreeGroupNode & {
+  type: "generator";
+  tests: GenericMap<Test>;
+  error?: string;
+};
+
 type TestTreeItem =
   | { type: "group"; workspaceId: string; node: TestTreeGroupNode }
   | { type: "test"; test: Test };
@@ -87,6 +105,7 @@ type DiscoveryFileError = {
   workspaceId: string;
   group: Array<string>;
   message: string;
+  type?: "generator";
 };
 
 type TestTreeFilter = {

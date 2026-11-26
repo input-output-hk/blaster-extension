@@ -3,6 +3,7 @@ import { VscodeTreeItem } from '@vscode-elements/react-elements';
 import TestStatusIcon from '../../../../components/TestStatusIcon';
 import { formatRunTime } from '../../../../utils/format';
 import { getTestRunLocation } from '../../../../../../src/utils/testRun';
+import { HASKELL_RUN_UNAVAILABLE, isRunnableTest } from '../../utils/treeUtils';
 
 interface TreeViewTestProps {
   test: Test;
@@ -17,7 +18,8 @@ const TreeViewTest: React.FC<TreeViewTestProps> = ({
   onOpenTestResult,
   onContextMenu
 }) => {
-  const isRunnable = !test.isRunning && !test.isWaiting;
+  const isHaskell = !isRunnableTest(test);
+  const isRunnable = !isHaskell && !test.isRunning && !test.isWaiting;
   const hasResult = test.status !== 'empty';
   const isError = test.status === 'error';
   const showsDetails = test.status === 'valid' || test.status === 'undetermined' || isError;
@@ -88,7 +90,7 @@ const TreeViewTest: React.FC<TreeViewTestProps> = ({
           disabled={!isRunnable}
           onClickCapture={handleRunTest}
           data-tooltip-id="tree-node-action"
-          data-tooltip-content="Run Test"
+          data-tooltip-content={isHaskell ? HASKELL_RUN_UNAVAILABLE : 'Run Test'}
         >
           <i className="codicon codicon-play" />
         </button>

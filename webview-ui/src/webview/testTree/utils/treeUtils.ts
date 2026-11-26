@@ -21,10 +21,16 @@ export const getGroupTests = (group: TestTreeGroupNode): Array<Test> => {
   return tests;
 };
 
+export const HASKELL_RUN_UNAVAILABLE = 'Running Haskell properties is not available yet';
+
+/** Tells whether a test can be run. Haskell properties can't be run yet (#101). */
+export const isRunnableTest = (test: Test): boolean => test.haskell === undefined;
+
 export const getGroupInfo = (node: TestTreeGroupNode): TestGroupInfo => {
   const tests: Array<Test> = getGroupTests(node);
+  const runnableTests = tests.filter(isRunnableTest);
   const selections = new Map<string, Array<string>>();
-  for (const test of tests) {
+  for (const test of runnableTests) {
     const { uri, id } = getTestRunLocation(test);
     const ids = selections.get(uri) ?? [];
     ids.push(id);
@@ -41,7 +47,7 @@ export const getGroupInfo = (node: TestTreeGroupNode): TestGroupInfo => {
 
   return {
     tests: Array.from(selections, ([uri, ids]) => ({ uri, ids })),
-    isRunnable: tests.length > 0 && !isWaiting && !isRunning,
+    isRunnable: runnableTests.length > 0 && !isWaiting && !isRunning,
     isWaiting,
     isRunning,
     status,

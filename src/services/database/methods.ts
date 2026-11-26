@@ -25,7 +25,13 @@ const toTest = (document: TestDocumentData): Test => ({
 		},
 	},
 	time: document.time,
+	...(document.haskell && { haskell: { ...document.haskell } }),
 });
+
+/**
+ * Orders Haskell properties as their generator lists them (assurance order). Other tests keep their order.
+ */
+const compareHaskellIndex = (a: Test, b: Test): number => (a.haskell?.index ?? 0) - (b.haskell?.index ?? 0);
 
 export const getTest = async (database: Database, workspaceId: string, testId: string): Promise<Test> => {
 	const testDocument: TestDocument | null = await database.tests.findOne({
@@ -184,7 +190,7 @@ export const handleTestRunFailedEvent = async (database: Database, event: TestRu
 const createTestTree = (workspaceId: string, openState: Record<string, boolean>, tests: Array<Test>): GenericMap<TestTreeGroupNode> => {
 	const nodes: GenericMap<TestTreeGroupNode> = {};
 
-	for (const test of tests) {
+	for (const test of [...tests].sort(compareHaskellIndex)) {
 		const group = test.group.length > 0 ? test.group : [basename(test.location.path)];
 		let currentNodes = nodes;
 
@@ -194,7 +200,7 @@ const createTestTree = (workspaceId: string, openState: Record<string, boolean>,
 
 			if (index === group.length - 1) {
 				if (currentNodes[name] === undefined) {
-					currentNodes[name] = { type: 'file', name, isOpen, tests: {} } as TestTreeFileNode;
+					currentNodes[name] = { type: test.haskell ? 'generator' : 'file', name, isOpen, tests: {} } as TestTreeFileNode;
 				}
 				(currentNodes[name] as TestTreeFileNode).tests[test.id] = test;
 			} else {
@@ -283,6 +289,7 @@ export const storeTestTree = async (database: Database, testTree: TestTree, open
 			isWaiting: test.isWaiting,
 			isRunning: test.isRunning,
 			time: test.time,
+			haskell: test.haskell,
 		})));
 
 		await database.workspaces.upsert({

@@ -3,8 +3,11 @@ import { VscodeTreeItem } from '@vscode-elements/react-elements';
 import TreeViewTest from './TreeViewTest';
 import TestStatusIcon from '../../../../components/TestStatusIcon';
 import useTreeItemState from '../../../../hooks/useTreeItemState';
-import { getGroupInfo } from '../../utils/treeUtils';
+import { getGroupInfo, HASKELL_RUN_UNAVAILABLE } from '../../utils/treeUtils';
 import { formatRunTime } from '../../../../utils/format';
+
+/** Returns the executable name of a generator target (`package:exe:name` → `name`). */
+const getGeneratorLabel = (target: string): string => target.split(':').at(-1) ?? target;
 
 interface TreeViewGroupProps {
   node: TestTreeGroupNode;
@@ -37,8 +40,10 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
     isRunning,
     isRunnable: canRun
   } = getGroupInfo(node);
-  const error = node.type === 'file' ? (node as TestTreeFileNode).error : undefined;
+  const error = node.type !== 'folder' ? (node as TestTreeFileNode).error : undefined;
   const isRunnable = canRun && error === undefined;
+  const isGenerator = node.type === 'generator';
+  const label = isGenerator ? getGeneratorLabel(node.name) : node.name;
 
   const treeItemRef = useTreeItemState({
     onToggleCollapsed: (isCollapsed) => {
@@ -85,7 +90,7 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
           data-tooltip-id="tree-node-name"
           data-node-name={node.name}
         >
-          {node.name}
+          {label}
           {error !== undefined &&
             <span
               className="ml-1 text-[var(--vscode-errorForeground)]"
@@ -121,7 +126,7 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
           disabled={!isRunnable}
           onClickCapture={handleRunGroup}
           data-tooltip-id="tree-node-action"
-          data-tooltip-content="Run Tests"
+          data-tooltip-content={isGenerator ? HASKELL_RUN_UNAVAILABLE : 'Run Tests'}
         >
           <i className="codicon codicon-run-all" />
         </button>
@@ -142,7 +147,7 @@ const TreeViewGroup: React.FC<TreeViewGroupProps> = ({
           />
         ))
       }
-      {node.type === 'file' &&
+      {node.type !== 'folder' &&
         Object.values((node as TestTreeFileNode).tests).filter(isVisible).map(test => (
           <TreeViewTest
             key={test.id}

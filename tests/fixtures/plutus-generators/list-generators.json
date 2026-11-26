@@ -1,0 +1,1130 @@
+[
+  {
+    "target": "docusaurus-examples:exe:example-ual-blueprint",
+    "cwd": "${ROOT}",
+    "main": "doc/docusaurus/static/code/Example/Ual/Blueprint/Main.hs",
+    "sources": [
+      "doc/docusaurus/static/code/Example/Ual/Blueprint/Main.hs"
+    ],
+    "properties": [
+      {
+        "id": "owner_signature_required",
+        "kind": "explicit",
+        "title": "A transaction that the owner has not signed is rejected.",
+        "content": "∀ (p : VestingParams) (ctx : ScriptContext),\n        ¬ txSignedBy p.vpOwner ctx.scriptContextTxInfo →\n          isUnsuccessful (vestingValidator p (toLedgerData ctx))",
+        "file": "doc/docusaurus/static/code/Example/Ual/Blueprint/Main.hs",
+        "range": {
+          "start": {
+            "line": 390,
+            "character": 0
+          },
+          "end": {
+            "line": 395,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "unvested_value_stays_locked",
+        "kind": "explicit",
+        "title": "A transaction is rejected when it leaves less value at the address of the input it spends than the total of the tranches that are not yet vested.",
+        "content": "∀ (p : VestingParams) (ctx : ScriptContext) (now : POSIXTime) (v : Value),\n        txRangeStartsAt now ctx.scriptContextTxInfo.txInfoValidRange →\n          continuingValue ctx = some v →\n            ¬ geq v (unvested p now) →\n              isUnsuccessful (vestingValidator p (toLedgerData ctx))",
+        "file": "doc/docusaurus/static/code/Example/Ual/Blueprint/Main.hs",
+        "range": {
+          "start": {
+            "line": 397,
+            "character": 0
+          },
+          "end": {
+            "line": 405,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "own_input_required",
+        "kind": "explicit",
+        "title": "A transaction is rejected when the validator is not spending one of its inputs.",
+        "content": "∀ (p : VestingParams) (ctx : ScriptContext),\n        findOwnInput ctx = none →\n          isUnsuccessful (vestingValidator p (toLedgerData ctx))",
+        "file": "doc/docusaurus/static/code/Example/Ual/Blueprint/Main.hs",
+        "range": {
+          "start": {
+            "line": 407,
+            "character": 0
+          },
+          "end": {
+            "line": 413,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "conforming_spend_accepted",
+        "kind": "explicit",
+        "title": "A transaction is accepted when it spends an input the validator guards, is signed by the owner, and leaves at least the total of the tranches that are not yet vested at the address of that input.",
+        "content": "∀ (p : VestingParams) (ctx : ScriptContext) (now : POSIXTime) (v : Value),\n        txSignedBy p.vpOwner ctx.scriptContextTxInfo →\n          txRangeStartsAt now ctx.scriptContextTxInfo.txInfoValidRange →\n            continuingValue ctx = some v →\n              geq v (unvested p now) →\n                isSuccessful (vestingValidator p (toLedgerData ctx))",
+        "file": "doc/docusaurus/static/code/Example/Ual/Blueprint/Main.hs",
+        "range": {
+          "start": {
+            "line": 415,
+            "character": 0
+          },
+          "end": {
+            "line": 425,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "malformed_context_rejected",
+        "kind": "explicit",
+        "title": "A transaction is rejected when what reaches the validator in place of a script context does not decode as one.",
+        "content": "∀ (p : VestingParams), isUnsuccessful (vestingValidator p (Data.I 0))",
+        "file": "doc/docusaurus/static/code/Example/Ual/Blueprint/Main.hs",
+        "range": {
+          "start": {
+            "line": 427,
+            "character": 0
+          },
+          "end": {
+            "line": 431,
+            "character": 3
+          }
+        }
+      }
+    ],
+    "needsEnvironment": false,
+    "argv": [
+      "cabal",
+      "run",
+      "-v0",
+      "docusaurus-examples:exe:example-ual-blueprint",
+      "--",
+      "--ndjson",
+      "--environment",
+      "doc/docusaurus/static/code/Example/Ual/Blueprint/environment.json"
+    ],
+    "command": "cabal run -v0 docusaurus-examples:exe:example-ual-blueprint -- --ndjson --environment doc/docusaurus/static/code/Example/Ual/Blueprint/environment.json"
+  },
+  {
+    "target": "docusaurus-examples:exe:example-ual-game",
+    "cwd": "${ROOT}",
+    "main": "doc/docusaurus/static/code/Example/Ual/Game/Main.hs",
+    "sources": [
+      "doc/docusaurus/static/code/Example/Ual/Game/Main.hs"
+    ],
+    "properties": [
+      {
+        "id": "correct_guess",
+        "kind": "explicit",
+        "title": "A guess whose hash matches the datum terminates successfully for every context.",
+        "content": "∀ (actual guess : ByteString) (ctx : Data), hashMatches actual guess →\n      isSuccessful (gameValidator (Data.B actual) (Data.B guess) ctx)",
+        "file": "doc/docusaurus/static/code/Example/Ual/Game/Main.hs",
+        "range": {
+          "start": {
+            "line": 42,
+            "character": 0
+          },
+          "end": {
+            "line": 46,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "wrong_guess",
+        "kind": "explicit",
+        "title": "A guess whose hash differs from the datum fails script evaluation for every context.",
+        "content": "∀ (actual guess : ByteString) (ctx : Data), ¬ hashMatches actual guess →\n      isUnsuccessful (gameValidator (Data.B actual) (Data.B guess) ctx)",
+        "file": "doc/docusaurus/static/code/Example/Ual/Game/Main.hs",
+        "range": {
+          "start": {
+            "line": 48,
+            "character": 0
+          },
+          "end": {
+            "line": 52,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "malformed_datum",
+        "kind": "explicit",
+        "title": "An integer datum fails to decode as the stored hash, for every redeemer and context.",
+        "content": "∀ (r ctx : Data), isSuccessful (gameValidator (Data.I 0) r ctx)",
+        "file": "doc/docusaurus/static/code/Example/Ual/Game/Main.hs",
+        "range": {
+          "start": {
+            "line": 54,
+            "character": 0
+          },
+          "end": {
+            "line": 57,
+            "character": 3
+          }
+        }
+      }
+    ],
+    "needsEnvironment": true,
+    "argv": [
+      "cabal",
+      "run",
+      "-v0",
+      "docusaurus-examples:exe:example-ual-game",
+      "--",
+      "--ndjson",
+      "--environment",
+      "<environment.json>"
+    ],
+    "command": "cabal run -v0 docusaurus-examples:exe:example-ual-game -- --ndjson --environment '<environment.json>'"
+  },
+  {
+    "target": "docusaurus-examples:exe:example-ual-parameters",
+    "cwd": "${ROOT}",
+    "main": "doc/docusaurus/static/code/Example/Ual/Parameters/Main.hs",
+    "sources": [
+      "doc/docusaurus/static/code/Example/Ual/Parameters/Main.hs"
+    ],
+    "properties": [
+      {
+        "id": "native_seven",
+        "kind": "explicit",
+        "title": "The native parameter succeeds exactly for seven, for any runtime inputs.",
+        "content": "∀ (n : Integer) (r ctx : Data), isSuccessful (nativeParameter n r ctx) ↔ n = 7",
+        "file": "doc/docusaurus/static/code/Example/Ual/Parameters/Main.hs",
+        "range": {
+          "start": {
+            "line": 40,
+            "character": 0
+          },
+          "end": {
+            "line": 43,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "data_seven",
+        "kind": "explicit",
+        "title": "The Data parameter succeeds exactly for seven, for any runtime inputs.",
+        "content": "∀ (n : Integer) (r ctx : Data), isSuccessful (dataParameter n r ctx) ↔ n = 7",
+        "file": "doc/docusaurus/static/code/Example/Ual/Parameters/Main.hs",
+        "range": {
+          "start": {
+            "line": 44,
+            "character": 0
+          },
+          "end": {
+            "line": 47,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "native_applied_seven",
+        "kind": "explicit",
+        "title": "The specialized program with parameter 7 has the stated outcome for every runtime input.",
+        "content": "∀ (r ctx : Data), isSuccessful (nativeParameter r ctx)",
+        "file": "doc/docusaurus/static/code/Example/Ual/Parameters/Main.hs",
+        "range": {
+          "start": {
+            "line": 49,
+            "character": 0
+          },
+          "end": {
+            "line": 52,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "native_applied_eight",
+        "kind": "explicit",
+        "title": "The specialized program with parameter 8 has the stated outcome for every runtime input.",
+        "content": "∀ (r ctx : Data), isUnsuccessful (nativeParameter r ctx)",
+        "file": "doc/docusaurus/static/code/Example/Ual/Parameters/Main.hs",
+        "range": {
+          "start": {
+            "line": 53,
+            "character": 0
+          },
+          "end": {
+            "line": 56,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "data_applied_seven",
+        "kind": "explicit",
+        "title": "The specialized program with parameter 7 has the stated outcome for every runtime input.",
+        "content": "∀ (r ctx : Data), isSuccessful (dataParameter r ctx)",
+        "file": "doc/docusaurus/static/code/Example/Ual/Parameters/Main.hs",
+        "range": {
+          "start": {
+            "line": 57,
+            "character": 0
+          },
+          "end": {
+            "line": 60,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "data_applied_eight",
+        "kind": "explicit",
+        "title": "The specialized program with parameter 8 has the stated outcome for every runtime input.",
+        "content": "∀ (r ctx : Data), isUnsuccessful (dataParameter r ctx)",
+        "file": "doc/docusaurus/static/code/Example/Ual/Parameters/Main.hs",
+        "range": {
+          "start": {
+            "line": 61,
+            "character": 0
+          },
+          "end": {
+            "line": 64,
+            "character": 3
+          }
+        }
+      }
+    ],
+    "needsEnvironment": false,
+    "argv": [
+      "cabal",
+      "run",
+      "-v0",
+      "docusaurus-examples:exe:example-ual-parameters",
+      "--",
+      "--ndjson",
+      "--environment",
+      "doc/docusaurus/static/code/Example/Ual/Parameters/environment.json"
+    ],
+    "command": "cabal run -v0 docusaurus-examples:exe:example-ual-parameters -- --ndjson --environment doc/docusaurus/static/code/Example/Ual/Parameters/environment.json"
+  },
+  {
+    "target": "docusaurus-examples:exe:example-ual-auction",
+    "cwd": "${ROOT}",
+    "main": "doc/docusaurus/static/code/Example/Ual/Auction/Main.hs",
+    "sources": [
+      "doc/docusaurus/static/code/Example/Ual/Auction/Main.hs",
+      "doc/docusaurus/static/code/AuctionValidator.hs",
+      "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+      "doc/docusaurus/static/code/Example/Ual/Auction/OnChain.hs"
+    ],
+    "properties": [
+      {
+        "id": "outbids_exact",
+        "kind": "explicit",
+        "title": "The separately compiled helper returns the native comparison result.",
+        "content": "∀ (old proposed : Integer), outbids_returns old proposed (decide (old <= proposed))",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 152,
+            "character": 0
+          },
+          "end": {
+            "line": 155,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "first_bid_exact",
+        "kind": "explicit",
+        "title": "For the upstream no-previous-bid scenario, the minimum, deadline, locked Ada and NFT quantity characterize success.",
+        "content": "∀ (proposed locked tokens hi : Integer),\n      isSuccessful (bidScenario auction 0 proposed locked 0 tokens hi) ↔\n        100 ≤ proposed ∧ hi ≤ 1725227091000 ∧ locked = proposed ∧ tokens = 1",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 156,
+            "character": 0
+          },
+          "end": {
+            "line": 161,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "existing_bid_exact",
+        "kind": "explicit",
+        "title": "For a positive previous bid, success requires a strictly larger bid, exact refund, correct continuing value and the deadline.",
+        "content": "∀ (old proposed locked refund tokens hi : Integer), 0 < old →\n      (isSuccessful (bidScenario auction old proposed locked refund tokens hi) ↔\n        old < proposed ∧ hi ≤ 1725227091000 ∧ locked = proposed ∧ refund = old ∧ tokens = 1)",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 162,
+            "character": 0
+          },
+          "end": {
+            "line": 167,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "payout_exact",
+        "kind": "explicit",
+        "title": "For the upstream payout scenario, the deadline, NFT and seller payment characterize success.",
+        "content": "∀ (bid paid tokens lo : Integer),\n      isSuccessful (payoutScenario auction bid paid tokens lo) ↔\n        1725227091000 ≤ lo ∧ tokens = 1 ∧ (0 < bid → paid = bid)",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 168,
+            "character": 0
+          },
+          "end": {
+            "line": 173,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "malformed_context",
+        "kind": "explicit",
+        "title": "An integer is not a V3 ScriptContext and is rejected.",
+        "content": "∀ (n : Integer), isUnsuccessful (auction (Data.I n))",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 174,
+            "character": 0
+          },
+          "end": {
+            "line": 177,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "audit_newBid_success_requires_sufficient_bid",
+        "kind": "explicit",
+        "title": "Upstream Auction audit: newBid_success_requires_sufficient_bid. Checked against this freshly compiled program.",
+        "content": "∀ (newBidAmt outAda outTok hi : Integer),\n    auditBid auction 0 newBidAmt outAda 0 outTok hi\n    → bakedMinBid ≤ newBidAmt",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 192,
+            "character": 0
+          },
+          "end": {
+            "line": 197,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "audit_newBid_success_requires_bigger_bid",
+        "kind": "explicit",
+        "title": "Upstream Auction audit: newBid_success_requires_bigger_bid. Checked against this freshly compiled program.",
+        "content": "∀ (oldBidAmt newBidAmt outAda refundAda outTok hi : Integer),\n    auditBid auction oldBidAmt newBidAmt outAda refundAda outTok hi\n    → oldBidAmt < newBidAmt",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 199,
+            "character": 0
+          },
+          "end": {
+            "line": 204,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "audit_newBid_success_requires_before_deadline",
+        "kind": "explicit",
+        "title": "Upstream Auction audit: newBid_success_requires_before_deadline. Checked against this freshly compiled program.",
+        "content": "∀ (oldBidAmt newBidAmt outAda refundAda outTok hi : Integer),\n    auditBid auction oldBidAmt newBidAmt outAda refundAda outTok hi\n    → hi ≤ bakedEndTime",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 206,
+            "character": 0
+          },
+          "end": {
+            "line": 211,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "audit_newBid_success_requires_output_locks_bid",
+        "kind": "explicit",
+        "title": "Upstream Auction audit: newBid_success_requires_output_locks_bid. Checked against this freshly compiled program.",
+        "content": "∀ (oldBidAmt newBidAmt outAda refundAda outTok hi : Integer),\n    auditBid auction oldBidAmt newBidAmt outAda refundAda outTok hi\n    → outAda = newBidAmt",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 213,
+            "character": 0
+          },
+          "end": {
+            "line": 218,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "audit_newBid_success_requires_single_nft",
+        "kind": "explicit",
+        "title": "Upstream Auction audit: newBid_success_requires_single_nft. Checked against this freshly compiled program.",
+        "content": "∀ (oldBidAmt newBidAmt outAda refundAda outTok hi : Integer),\n    auditBid auction oldBidAmt newBidAmt outAda refundAda outTok hi\n    → outTok = 1",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 220,
+            "character": 0
+          },
+          "end": {
+            "line": 225,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "audit_valid_newBid_succeeds",
+        "kind": "explicit",
+        "title": "Upstream Auction audit: valid_newBid_succeeds. Checked against this freshly compiled program.",
+        "content": "∀ (oldBidAmt newBidAmt outAda refundAda outTok hi : Integer),\n    bakedMinBid ≤ newBidAmt →\n    oldBidAmt < newBidAmt   →\n    hi ≤ bakedEndTime       →\n    outAda = newBidAmt      →\n    refundAda = oldBidAmt   →\n    outTok = 1\n    → auditBid auction oldBidAmt newBidAmt outAda refundAda outTok hi",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 227,
+            "character": 0
+          },
+          "end": {
+            "line": 237,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "audit_newBid_accepts_minimal_increment",
+        "kind": "explicit",
+        "title": "Upstream Auction audit: newBid_accepts_minimal_increment. Checked against this freshly compiled program.",
+        "content": "∀ (oldBidAmt outAda refundAda outTok hi : Integer),\n    bakedMinBid ≤ oldBidAmt + 1 →\n    hi ≤ bakedEndTime          →\n    outAda = oldBidAmt + 1     →\n    refundAda = oldBidAmt      →\n    outTok = 1\n    → auditBid auction oldBidAmt (oldBidAmt + 1) outAda refundAda outTok hi",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 239,
+            "character": 0
+          },
+          "end": {
+            "line": 248,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "audit_payout_success_requires_after_deadline",
+        "kind": "explicit",
+        "title": "Upstream Auction audit: payout_success_requires_after_deadline. Checked against this freshly compiled program.",
+        "content": "∀ (bidAmt sellerAda assetTok lo : Integer),\n    auditPayout auction bidAmt sellerAda assetTok lo\n    → bakedEndTime ≤ lo",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 250,
+            "character": 0
+          },
+          "end": {
+            "line": 255,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "audit_payout_success_pays_seller_highest_bid",
+        "kind": "explicit",
+        "title": "Upstream Auction audit: payout_success_pays_seller_highest_bid. Checked against this freshly compiled program.",
+        "content": "∀ (bidAmt sellerAda assetTok lo : Integer),\n    auditPayout auction bidAmt sellerAda assetTok lo →\n    0 < bidAmt\n    → sellerAda = bidAmt",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 257,
+            "character": 0
+          },
+          "end": {
+            "line": 263,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "audit_payout_success_transfers_asset",
+        "kind": "explicit",
+        "title": "Upstream Auction audit: payout_success_transfers_asset. Checked against this freshly compiled program.",
+        "content": "∀ (bidAmt sellerAda assetTok lo : Integer),\n    auditPayout auction bidAmt sellerAda assetTok lo\n    → assetTok = 1",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 265,
+            "character": 0
+          },
+          "end": {
+            "line": 270,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "audit_valid_payout_with_bid_succeeds",
+        "kind": "explicit",
+        "title": "Upstream Auction audit: valid_payout_with_bid_succeeds. Checked against this freshly compiled program.",
+        "content": "∀ (bidAmt sellerAda assetTok lo : Integer),\n    0 < bidAmt         →\n    bakedEndTime ≤ lo  →\n    sellerAda = bidAmt →\n    assetTok = 1\n    → auditPayout auction bidAmt sellerAda assetTok lo",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 272,
+            "character": 0
+          },
+          "end": {
+            "line": 280,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "audit_valid_payout_no_bid_succeeds",
+        "kind": "explicit",
+        "title": "Upstream Auction audit: valid_payout_no_bid_succeeds. Checked against this freshly compiled program.",
+        "content": "∀ (sellerAda assetTok lo : Integer),\n    bakedEndTime ≤ lo →\n    assetTok = 1\n    → auditPayout auction 0 sellerAda assetTok lo",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 282,
+            "character": 0
+          },
+          "end": {
+            "line": 288,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "audit_newBid_accepts_dust_tokens",
+        "kind": "explicit",
+        "title": "Upstream Auction audit: newBid_accepts_dust_tokens. Checked against this freshly compiled program.",
+        "content": "∀ (oldBidAmt newBidAmt outAda refundAda outTok hi junkTok : Integer),\n    bakedMinBid ≤ newBidAmt →\n    oldBidAmt < newBidAmt   →\n    hi ≤ bakedEndTime       →\n    outAda = newBidAmt      →\n    refundAda = oldBidAmt   →\n    outTok = 1\n    → auditAttack auction oldBidAmt newBidAmt outAda refundAda outTok hi junkTok 0",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 290,
+            "character": 0
+          },
+          "end": {
+            "line": 300,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "audit_newBid_ignores_minting",
+        "kind": "explicit",
+        "title": "Upstream Auction audit: newBid_ignores_minting. Checked against this freshly compiled program.",
+        "content": "∀ (oldBidAmt newBidAmt outAda refundAda outTok hi mintTok : Integer),\n    bakedMinBid ≤ newBidAmt →\n    oldBidAmt < newBidAmt   →\n    hi ≤ bakedEndTime       →\n    outAda = newBidAmt      →\n    refundAda = oldBidAmt   →\n    outTok = 1\n    → auditAttack auction oldBidAmt newBidAmt outAda refundAda outTok hi 0 mintTok",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 302,
+            "character": 0
+          },
+          "end": {
+            "line": 312,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "audit_payout_double_satisfaction",
+        "kind": "explicit",
+        "title": "Upstream Auction audit: payout_double_satisfaction. Checked against this freshly compiled program.",
+        "content": "∀ (bidAmt sellerAda assetTok lo : Integer),\n    0 < bidAmt         →\n    bakedEndTime ≤ lo  →\n    sellerAda = bidAmt →\n    assetTok = 1\n    → auditDouble auction bidAmt sellerAda assetTok lo",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 314,
+            "character": 0
+          },
+          "end": {
+            "line": 322,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "audit_newBid_success_positive_bid",
+        "kind": "explicit",
+        "title": "Upstream Auction audit: newBid_success_positive_bid. Checked against this freshly compiled program.",
+        "content": "∀ (oldBidAmt newBidAmt outAda refundAda outTok hi : Integer),\n    auditBid auction oldBidAmt newBidAmt outAda refundAda outTok hi\n    → 0 < newBidAmt",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 324,
+            "character": 0
+          },
+          "end": {
+            "line": 329,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "audit_payout_success_positive_asset",
+        "kind": "explicit",
+        "title": "Upstream Auction audit: payout_success_positive_asset. Checked against this freshly compiled program.",
+        "content": "∀ (bidAmt sellerAda assetTok lo : Integer),\n    auditPayout auction bidAmt sellerAda assetTok lo\n    → 0 < assetTok",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 331,
+            "character": 0
+          },
+          "end": {
+            "line": 336,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "audit_payout_success_positive_seller_payment",
+        "kind": "explicit",
+        "title": "Upstream Auction audit: payout_success_positive_seller_payment. Checked against this freshly compiled program.",
+        "content": "∀ (bidAmt sellerAda assetTok lo : Integer),\n    auditPayout auction bidAmt sellerAda assetTok lo →\n    0 < bidAmt\n    → 0 < sellerAda",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 338,
+            "character": 0
+          },
+          "end": {
+            "line": 344,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "audit_demo_valid_bid_accepted",
+        "kind": "explicit",
+        "title": "Upstream Auction audit: demo_valid_bid_accepted. Checked against this freshly compiled program.",
+        "content": "auditAccepts auction demoValidCtx",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 346,
+            "character": 0
+          },
+          "end": {
+            "line": 349,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "audit_nb_wrong_token_name_rejected",
+        "kind": "explicit",
+        "title": "Upstream Auction audit: nb_wrong_token_name_rejected. Checked against this freshly compiled program.",
+        "content": "¬ auditAccepts auction demoWrongTnCtx",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 351,
+            "character": 0
+          },
+          "end": {
+            "line": 354,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "audit_nb_wrong_policy_rejected",
+        "kind": "explicit",
+        "title": "Upstream Auction audit: nb_wrong_policy_rejected. Checked against this freshly compiled program.",
+        "content": "¬ auditAccepts auction demoWrongPolicyCtx",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 356,
+            "character": 0
+          },
+          "end": {
+            "line": 359,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "audit_nb_datum_hash_rejected",
+        "kind": "explicit",
+        "title": "Upstream Auction audit: nb_datum_hash_rejected. Checked against this freshly compiled program.",
+        "content": "¬ auditAccepts auction demoDatumHashCtx",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 361,
+            "character": 0
+          },
+          "end": {
+            "line": 364,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "audit_nb_datum_missing_rejected",
+        "kind": "explicit",
+        "title": "Upstream Auction audit: nb_datum_missing_rejected. Checked against this freshly compiled program.",
+        "content": "¬ auditAccepts auction demoNoDatumCtx",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 366,
+            "character": 0
+          },
+          "end": {
+            "line": 369,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "audit_nb_datum_wrong_bid_rejected",
+        "kind": "explicit",
+        "title": "Upstream Auction audit: nb_datum_wrong_bid_rejected. Checked against this freshly compiled program.",
+        "content": "¬ auditAccepts auction demoWrongDatumCtx",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 371,
+            "character": 0
+          },
+          "end": {
+            "line": 374,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "audit_nb_other_redeemer_rejected",
+        "kind": "explicit",
+        "title": "Upstream Auction audit: nb_other_redeemer_rejected. Checked against this freshly compiled program.",
+        "content": "¬ auditAccepts auction demoOtherRedeemerCtx",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 376,
+            "character": 0
+          },
+          "end": {
+            "line": 379,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "audit_payout_staked_outputs_accepted",
+        "kind": "explicit",
+        "title": "Upstream Auction audit: payout_staked_outputs_accepted. Checked against this freshly compiled program.",
+        "content": "auditAccepts auction demoPayoutStakedCtx",
+        "file": "doc/docusaurus/static/code/Example/Ual/Auction/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 381,
+            "character": 0
+          },
+          "end": {
+            "line": 384,
+            "character": 3
+          }
+        }
+      }
+    ],
+    "needsEnvironment": false,
+    "argv": [
+      "cabal",
+      "run",
+      "-v0",
+      "docusaurus-examples:exe:example-ual-auction",
+      "--",
+      "--ndjson",
+      "--environment",
+      "doc/docusaurus/static/code/Example/Ual/Auction/environment.json"
+    ],
+    "command": "cabal run -v0 docusaurus-examples:exe:example-ual-auction -- --ndjson --environment doc/docusaurus/static/code/Example/Ual/Auction/environment.json"
+  },
+  {
+    "target": "docusaurus-examples:exe:example-ual-purpose-isolation",
+    "cwd": "${ROOT}",
+    "main": "doc/docusaurus/static/code/Example/Ual/PurposeIsolation/Main.hs",
+    "sources": [
+      "doc/docusaurus/static/code/Example/Ual/PurposeIsolation/Main.hs",
+      "doc/docusaurus/static/code/Example/Ual/PurposeIsolation/Types.hs"
+    ],
+    "properties": [
+      {
+        "id": "spendingOnly_purpose_isolation",
+        "kind": "template",
+        "file": "doc/docusaurus/static/code/Example/Ual/PurposeIsolation/Main.hs",
+        "range": {
+          "start": {
+            "line": 77,
+            "character": 0
+          },
+          "end": {
+            "line": 77,
+            "character": 77
+          }
+        }
+      },
+      {
+        "id": "spendingAndMinting_purpose_isolation",
+        "kind": "template",
+        "file": "doc/docusaurus/static/code/Example/Ual/PurposeIsolation/Main.hs",
+        "range": {
+          "start": {
+            "line": 78,
+            "character": 0
+          },
+          "end": {
+            "line": 78,
+            "character": 91
+          }
+        }
+      },
+      {
+        "id": "parameterizedSpending_purpose_isolation",
+        "kind": "template",
+        "file": "doc/docusaurus/static/code/Example/Ual/PurposeIsolation/Main.hs",
+        "range": {
+          "start": {
+            "line": 79,
+            "character": 0
+          },
+          "end": {
+            "line": 79,
+            "character": 86
+          }
+        }
+      },
+      {
+        "id": "uncheckedPurpose_purpose_isolation",
+        "kind": "template",
+        "file": "doc/docusaurus/static/code/Example/Ual/PurposeIsolation/Main.hs",
+        "range": {
+          "start": {
+            "line": 80,
+            "character": 0
+          },
+          "end": {
+            "line": 80,
+            "character": 81
+          }
+        }
+      },
+      {
+        "id": "spendingOnly_accepts_some_context",
+        "kind": "template",
+        "file": "doc/docusaurus/static/code/Example/Ual/PurposeIsolation/Main.hs",
+        "range": {
+          "start": {
+            "line": 83,
+            "character": 0
+          },
+          "end": {
+            "line": 83,
+            "character": 71
+          }
+        }
+      },
+      {
+        "id": "spendingAndMinting_accepts_some_context",
+        "kind": "template",
+        "file": "doc/docusaurus/static/code/Example/Ual/PurposeIsolation/Main.hs",
+        "range": {
+          "start": {
+            "line": 84,
+            "character": 0
+          },
+          "end": {
+            "line": 84,
+            "character": 77
+          }
+        }
+      },
+      {
+        "id": "parameterizedSpending_accepts_some_context",
+        "kind": "template",
+        "file": "doc/docusaurus/static/code/Example/Ual/PurposeIsolation/Main.hs",
+        "range": {
+          "start": {
+            "line": 85,
+            "character": 0
+          },
+          "end": {
+            "line": 85,
+            "character": 80
+          }
+        }
+      },
+      {
+        "id": "uncheckedPurpose_accepts_some_context",
+        "kind": "template",
+        "file": "doc/docusaurus/static/code/Example/Ual/PurposeIsolation/Main.hs",
+        "range": {
+          "start": {
+            "line": 86,
+            "character": 0
+          },
+          "end": {
+            "line": 86,
+            "character": 75
+          }
+        }
+      }
+    ],
+    "needsEnvironment": true,
+    "argv": [
+      "cabal",
+      "run",
+      "-v0",
+      "docusaurus-examples:exe:example-ual-purpose-isolation",
+      "--",
+      "--ndjson",
+      "--environment",
+      "<environment.json>"
+    ],
+    "command": "cabal run -v0 docusaurus-examples:exe:example-ual-purpose-isolation -- --ndjson --environment '<environment.json>'"
+  },
+  {
+    "target": "docusaurus-examples:exe:example-ual-total-rejection",
+    "cwd": "${ROOT}",
+    "main": "doc/docusaurus/static/code/Example/Ual/TotalRejection/Main.hs",
+    "sources": [
+      "doc/docusaurus/static/code/Example/Ual/TotalRejection/Main.hs"
+    ],
+    "properties": [
+      {
+        "id": "locked_accepts_some_context",
+        "kind": "template",
+        "file": "doc/docusaurus/static/code/Example/Ual/TotalRejection/Main.hs",
+        "range": {
+          "start": {
+            "line": 42,
+            "character": 0
+          },
+          "end": {
+            "line": 42,
+            "character": 65
+          }
+        }
+      }
+    ],
+    "needsEnvironment": true,
+    "argv": [
+      "cabal",
+      "run",
+      "-v0",
+      "docusaurus-examples:exe:example-ual-total-rejection",
+      "--",
+      "--ndjson",
+      "--environment",
+      "<environment.json>"
+    ],
+    "command": "cabal run -v0 docusaurus-examples:exe:example-ual-total-rejection -- --ndjson --environment '<environment.json>'"
+  },
+  {
+    "target": "docusaurus-examples:exe:example-ual-recursive",
+    "cwd": "${ROOT}",
+    "main": "doc/docusaurus/static/code/Example/Ual/Recursive/Main.hs",
+    "sources": [
+      "doc/docusaurus/static/code/Example/Ual/Recursive/Main.hs",
+      "doc/docusaurus/static/code/Example/Ual/Recursive/FormalSpec.hs",
+      "doc/docusaurus/static/code/Example/Ual/Recursive/OnChain.hs"
+    ],
+    "properties": [
+      {
+        "id": "leaf_seven",
+        "kind": "explicit",
+        "title": "A leaf parameter is accepted exactly when it contains seven.",
+        "content": "∀ (n : Integer) (ctx : Data), isSuccessful (treeValidator (leaf n) ctx) ↔ n = 7",
+        "file": "doc/docusaurus/static/code/Example/Ual/Recursive/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 20,
+            "character": 0
+          },
+          "end": {
+            "line": 23,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "nested_sum",
+        "kind": "explicit",
+        "title": "The recursive parameter is decoded and all three leaves contribute.",
+        "content": "∀ (a b c : Integer) (ctx : Data),\n      isSuccessful (treeValidator (branch (leaf a) (branch (leaf b) (leaf c))) ctx) ↔ a + (b + c) = 7",
+        "file": "doc/docusaurus/static/code/Example/Ual/Recursive/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 24,
+            "character": 0
+          },
+          "end": {
+            "line": 28,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "nested_mirror",
+        "kind": "explicit",
+        "title": "The compiled helper reverses the recursive branches and returns Data.",
+        "content": "∀ (a b c : Integer),\n      mirrorData_returns (branch (leaf a) (branch (leaf b) (leaf c))) (branch (branch (leaf c) (leaf b)) (leaf a))",
+        "file": "doc/docusaurus/static/code/Example/Ual/Recursive/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 29,
+            "character": 0
+          },
+          "end": {
+            "line": 33,
+            "character": 3
+          }
+        }
+      },
+      {
+        "id": "malformed_tree",
+        "kind": "explicit",
+        "title": "A bare integer is rejected, despite crossing the boundary as raw Data.",
+        "content": "∀ (n : Integer), isUnsuccessful (mirrorData (Data.I n))",
+        "file": "doc/docusaurus/static/code/Example/Ual/Recursive/FormalSpec.hs",
+        "range": {
+          "start": {
+            "line": 34,
+            "character": 0
+          },
+          "end": {
+            "line": 37,
+            "character": 3
+          }
+        }
+      }
+    ],
+    "needsEnvironment": false,
+    "argv": [
+      "cabal",
+      "run",
+      "-v0",
+      "docusaurus-examples:exe:example-ual-recursive",
+      "--",
+      "--ndjson",
+      "--environment",
+      "doc/docusaurus/static/code/Example/Ual/Recursive/environment.json"
+    ],
+    "command": "cabal run -v0 docusaurus-examples:exe:example-ual-recursive -- --ndjson --environment doc/docusaurus/static/code/Example/Ual/Recursive/environment.json"
+  }
+]

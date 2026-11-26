@@ -4,6 +4,10 @@ import TreeViewGroup from './TreeViewGroup';
 import TestStatusIcon from '../../../../components/TestStatusIcon';
 import useTreeItemState from '../../../../hooks/useTreeItemState';
 import { formatRunTime } from '../../../../utils/format';
+import { getGroupTests, isRunnableTest } from '../../utils/treeUtils';
+
+/** Tells whether a group holds at least one test that can be run (Haskell properties can't yet). */
+const hasRunnableTests = (node: TestTreeGroupNode): boolean => getGroupTests(node).some(isRunnableTest);
 
 interface TreeViewWorkspaceProps {
   workspace: TestTreeWorkspaceNode;
@@ -24,7 +28,7 @@ const TreeViewWorkspace: React.FC<TreeViewWorkspaceProps> = ({
   onUpdateOpenTestTreeNode,
   onContextMenu
 }) => {
-  const isRunnable = Object.keys(workspace.nodes).length > 0 && !workspace.isRunning && !workspace.isWaiting;
+  const isRunnable = Object.values(workspace.nodes).some(hasRunnableTests) && !workspace.isRunning && !workspace.isWaiting;
   const name = workspace.path.split(/[/\\]/).filter(Boolean).at(-1) ?? workspace.path;
 
   const treeItemRef = useTreeItemState({

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { getVisibleItems, parseFilterText } from './treeUtils';
+import { getGroupInfo, getVisibleItems, isRunnableTest, parseFilterText } from './treeUtils';
 
 import type { FilterContext } from './filterTags';
 
@@ -225,5 +225,46 @@ describe('getVisibleItems', () => {
     test('hides parents with no visible test left', () => {
       expect(getVisibleNames('nothing-matches')).toEqual([]);
     });
+  });
+});
+
+describe('Haskell properties', () => {
+  const AUCTION = 'docusaurus-examples:exe:example-ual-auction';
+  const property: Test = {
+    ...makeTest(`ual:${AUCTION}:outbids_exact`, 'outbids_exact', 'empty', '/ws/plutus/FormalSpec.hs'),
+    group: [AUCTION],
+    haskell: { generator: AUCTION, propertyId: 'outbids_exact', index: 0, kind: 'explicit' },
+  };
+  const generator: TestTreeGeneratorNode = {
+    type: 'generator',
+    name: AUCTION,
+    isOpen: false,
+    tests: { [property.id]: property },
+  };
+
+  test('are not runnable yet', () => {
+    expect(isRunnableTest(property)).toBe(false);
+    expect(isRunnableTest(mintValid)).toBe(true);
+  });
+
+  test('a generator group has no runnable selection', () => {
+    expect(getGroupInfo(generator)).toMatchObject({ tests: [], isRunnable: false, status: 'empty' });
+  });
+
+  test('a mixed folder only selects its Lean tests', () => {
+    const mixed: TestTreeFolderNode = { type: 'folder', name: 'mixed', isOpen: false, nodes: { [AUCTION]: generator, 'Mint.lean': mintFile } };
+    const { tests, isRunnable } = getGroupInfo(mixed);
+    expect(isRunnable).toBe(true);
+    expect(tests.map(selection => selection.uri)).toEqual(['']);
+  });
+
+  test('a generator is filtered like a file', () => {
+    const workspace: TestTreeWorkspaceNode = {
+      id: 'ws', path: '/ws/plutus', status: 'empty', isWaiting: false, isRunning: false, isOpen: false,
+      nodes: { [AUCTION]: generator },
+    };
+    const visible = getVisibleItems({ workspaces: { ws: workspace } }, { text: 'outbids' }, { openFiles: new Set() });
+    expect(visible.has(property)).toBe(true);
+    expect(visible.has(generator)).toBe(true);
   });
 });

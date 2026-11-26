@@ -47,6 +47,18 @@ const testSchemaLiteral = {
       required: ['path', 'range'],
     },
     time: numberSchema,
+    haskell: {
+      type: 'object',
+      properties: {
+        generator: stringSchema,
+        propertyId: stringSchema,
+        index: numberSchema,
+        kind: { type: 'string', enum: ['explicit', 'template'] },
+        title: stringSchema,
+        content: stringSchema,
+      },
+      required: ['generator', 'propertyId', 'index', 'kind'],
+    },
   },
   required: [
     'id',
