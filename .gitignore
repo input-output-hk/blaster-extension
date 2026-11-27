@@ -35,3 +35,4 @@ node_modules
 bin/*
 # Claude Code personal settings
 .claude/settings.local.json
+- plans -/
