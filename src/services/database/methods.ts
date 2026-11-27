@@ -312,7 +312,7 @@ export const updateHaskellDetails = async (
 	database: Database,
 	workspaceId: string,
 	testId: string,
-	details: { title?: string; content?: string }
+	details: { title?: string; content?: string; scope?: string }
 ): Promise<void> => {
 	const testDocument: TestDocument | null = await database.tests.findOne({
 		selector: { id: `${workspaceId}:${testId}` }

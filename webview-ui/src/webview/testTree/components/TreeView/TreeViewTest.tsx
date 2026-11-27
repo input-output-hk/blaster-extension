@@ -3,7 +3,7 @@ import { VscodeTreeItem } from '@vscode-elements/react-elements';
 import TestStatusIcon from '../../../../components/TestStatusIcon';
 import { formatRunTime } from '../../../../utils/format';
 import { getTestRunLocation } from '../../../../../../src/utils/testRun';
-import { getTestTooltip, HASKELL_RUN_UNAVAILABLE, isRunnableTest } from '../../utils/treeUtils';
+import { getTestLabel, getTestTooltip, HASKELL_RUN_UNAVAILABLE, isRunnableTest } from '../../utils/treeUtils';
 
 interface TreeViewTestProps {
   test: Test;
@@ -43,8 +43,13 @@ const TreeViewTest: React.FC<TreeViewTestProps> = ({
     onRunTest([{ workspaceId: test.workspaceId, tests: [{ uri, ids: [id] }] }]);
   };
 
-  /** Opens the test's source location (its Lean site or UAL annotation) when the row is clicked. */
-  const handleOpenLocation = (): void => {
+  /**
+   * Opens the test's source location (its Lean site or UAL annotation) when the row is clicked. Listens in
+   * the capture phase, because the tree item stops the click before it bubbles. Clicks on the row's
+   * buttons are left to them.
+   */
+  const handleOpenLocation = (event: React.MouseEvent): void => {
+    if ((event.target as HTMLElement).closest('button')) return;
     onOpenTestLocation(test.location);
   };
 
@@ -55,7 +60,7 @@ const TreeViewTest: React.FC<TreeViewTestProps> = ({
   };
 
   return (
-    <VscodeTreeItem onClick={handleOpenLocation} onContextMenu={handleContextMenu}>
+    <VscodeTreeItem onClickCapture={handleOpenLocation} onContextMenu={handleContextMenu}>
       <TestStatusIcon
         isWaiting={test.isWaiting}
         isRunning={test.isRunning}
@@ -68,7 +73,7 @@ const TreeViewTest: React.FC<TreeViewTestProps> = ({
           data-tooltip-content={getTestTooltip(test)}
           data-node-name={test.name}
         >
-          {test.name}
+          {getTestLabel(test)}
           {isError ?
             <span className="ml-1 text-[var(--vscode-testing-iconErrored)]">Error</span> :
             test.time !== undefined && test.time > 0 &&

@@ -19,6 +19,7 @@ export type AssuranceProperty = {
   title?: string;
   content?: string;
   checkingContext?: string;
+  scope?: string;
 };
 
 type BundleLog = {
@@ -96,7 +97,22 @@ function toAssuranceProperty(value: unknown, index: number): AssuranceProperty {
     title: typeof statement.text === 'string' ? statement.text : undefined,
     content: typeof formal.source === 'string' ? formal.source : undefined,
     checkingContext: typeof value.checkingContext === 'string' ? value.checkingContext : undefined,
+    scope: getScopeNames(value.scope),
   };
+}
+
+/**
+ * Returns the names in an assurance `scope` (`validators`, else `functions`), comma-separated.
+ */
+function getScopeNames(scope: unknown): string | undefined {
+  if (!isRecord(scope)) return undefined;
+  const names = Array.isArray(scope.validators) ? scope.validators : scope.functions;
+  if (!Array.isArray(names)) return undefined;
+  const strings: Array<string> = [];
+  for (const name of names) {
+    if (typeof name === 'string') strings.push(name);
+  }
+  return strings.length > 0 ? strings.join(', ') : undefined;
 }
 
 /**

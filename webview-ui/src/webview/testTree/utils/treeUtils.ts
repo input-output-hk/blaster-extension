@@ -26,6 +26,16 @@ export const HASKELL_RUN_UNAVAILABLE = 'Running Haskell properties is not availa
 /** Tells whether a test can be run. Haskell properties can't be run yet (#101). */
 export const isRunnableTest = (test: Test): boolean => test.haskell === undefined;
 
+/**
+ * Returns the label of a test row. A Haskell property shows `<scope>: <title>` once its generator has run
+ * (the scope comes from the generated assurance.json); anything else shows its name.
+ */
+export const getTestLabel = (test: Test): string => {
+  const haskell = test.haskell;
+  if (haskell?.title === undefined || haskell.scope === undefined) return test.name;
+  return `${haskell.scope}: ${haskell.title}`;
+};
+
 /** Returns the hover text of a test row: a Haskell property's UAL title, nothing for Lean tests. */
 export const getTestTooltip = (test: Test): string | undefined => test.haskell?.title;
 

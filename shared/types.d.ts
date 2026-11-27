@@ -23,6 +23,8 @@ type HaskellProperty = {
   kind: "explicit" | "template";
   title?: string;
   content?: string;
+  // The scripts a template property applies to (assurance `scope`), filled in after generation
+  scope?: string;
 };
 
 type TestRange = {

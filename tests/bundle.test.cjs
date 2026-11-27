@@ -58,7 +58,7 @@ const writeFakeGenerator = dir => {
     if (mode === 'hang') setInterval(() => {}, 1000);
     else {
       console.log("Submodule 'lib/QuickChick' unregistered for path 'lib/QuickChick'");
-      const assurance = { properties: ids.map(id => ({ id, statement: { text: 'T ' + id, formal: { source: 'S ' + id } } })) };
+      const assurance = { properties: ids.map(id => ({ id, scope: { validators: [id.split('_')[0]] }, statement: { text: 'T ' + id, formal: { source: 'S ' + id } } })) };
       console.log(JSON.stringify({ path: 'plutus.json', encoding: 'utf8', content: '{}\\n' }));
       console.log(JSON.stringify({ path: 'applied-x.cbor', encoding: 'base16', content: '4a01' }));
       console.log(JSON.stringify({ path: 'assurance.json', encoding: 'utf8', content: JSON.stringify(assurance) + '\\n' }));
@@ -142,6 +142,7 @@ test('assurance properties come from statement.text and statement.formal.source'
     title: 'The separately compiled helper returns the native comparison result.',
     content: '∀ (old proposed : Integer), outbids_returns old proposed (decide (old <= proposed))',
     checkingContext: 'outbids_exact',
+    scope: 'outbids',
   });
   assert.throws(() => getAssuranceProperties([]), /no assurance\.json/);
 });
@@ -217,6 +218,11 @@ test('refresh generates bundles in the background and fills template details', a
   const template = purpose.tests[`ual:${PURPOSE}:spendingOnly_purpose_isolation`];
   assert.equal(template.haskell.title, 'T spendingOnly_purpose_isolation');
   assert.equal(template.haskell.content, 'S spendingOnly_purpose_isolation');
+  assert.equal(template.haskell.scope, 'spendingOnly');
+  const explicit = Object.values(generated.workspaces.workspace.nodes['docusaurus-examples:exe:example-ual-auction'].tests)
+    .find(test => test.haskell.propertyId === 'outbids_exact');
+  assert.equal(explicit.haskell.scope, 'outbids');
+  assert.notEqual(explicit.haskell.title, 'T outbids_exact');
   assert.equal(store.generators.getBundle('workspace', PURPOSE).records.length, 3);
   for (const node of Object.values(generated.workspaces.workspace.nodes)) assert.deepEqual(node.state, { kind: 'ready' });
 });

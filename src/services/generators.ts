@@ -12,7 +12,7 @@ import type { AssuranceProperty, Bundle } from './generators/bundle';
 
 type GeneratorEntry = { workspaceId: string; generator: ListedGenerator & { properties: NonNullable<ListedGenerator['properties']> } };
 
-export type HaskellDetailsUpdate = (workspaceId: string, testId: string, details: { title?: string; content?: string }) => Promise<void>;
+export type HaskellDetailsUpdate = (workspaceId: string, testId: string, details: { title?: string; content?: string; scope?: string }) => Promise<void>;
 
 /**
  * Builds the map key of one generator in one workspace root.
@@ -212,7 +212,7 @@ export default class Generators {
         const properties = getAssuranceProperties(bundle.records);
         this.checkPropertyIds(generator, properties);
         this.bundles.set(getGeneratorKey(workspaceId, generator.target), bundle);
-        await this.updateTemplates(workspaceId, generator, properties, onDetails);
+        await this.updateDetails(workspaceId, generator, properties, onDetails);
         this.setState(workspaceId, generator.target, { kind: 'ready' });
       } catch (error) {
         if (signal.aborted) {
@@ -245,9 +245,10 @@ export default class Generators {
   }
 
   /**
-   * Fills in the title and content of template properties from the generated assurance.json.
+   * Fills in every property's scope from the generated assurance.json, and the title and content of
+   * template properties (explicit ones already have theirs from the source).
    */
-  private async updateTemplates(
+  private async updateDetails(
     workspaceId: string,
     generator: GeneratorEntry['generator'],
     properties: Array<AssuranceProperty>,
@@ -255,10 +256,12 @@ export default class Generators {
   ): Promise<void> {
     const generated = new Map(properties.map(toAssuranceEntry));
     for (const property of generator.properties) {
-      if (property.kind !== 'template') continue;
       const details = generated.get(property.id);
       if (details === undefined) continue;
-      await onDetails(workspaceId, makeHaskellTestId(generator.target, property.id), { title: details.title, content: details.content });
+      const update = property.kind === 'template'
+        ? { title: details.title, content: details.content, scope: details.scope }
+        : { scope: details.scope };
+      await onDetails(workspaceId, makeHaskellTestId(generator.target, property.id), update);
     }
   }
 

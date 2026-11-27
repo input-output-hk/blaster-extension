@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { getGroupInfo, getTestTooltip, getVisibleItems, isRunnableTest, parseFilterText } from './treeUtils';
+import { getGroupInfo, getTestLabel, getTestTooltip, getVisibleItems, isRunnableTest, parseFilterText } from './treeUtils';
 
 import type { FilterContext } from './filterTags';
 
@@ -252,6 +252,20 @@ describe('Haskell properties', () => {
     expect(getTestTooltip(titled)).toBe('Outbids exactly');
     expect(getTestTooltip(property)).toBeUndefined();
     expect(getTestTooltip(mintValid)).toBeUndefined();
+  });
+
+  test('a generated property shows its script and title, anything else its name', () => {
+    const template: Test = {
+      ...property,
+      name: 'spendingOnly_purpose_isolation',
+      haskell: { ...property.haskell!, kind: 'template', title: 'The compiled script accepts a context.', scope: 'spendingOnly' },
+    };
+    expect(getTestLabel(template)).toBe('spendingOnly: The compiled script accepts a context.');
+    expect(getTestLabel({ ...template, haskell: { ...template.haskell!, title: undefined } })).toBe('spendingOnly_purpose_isolation');
+    const explicit: Test = { ...property, haskell: { ...property.haskell!, title: 'Outbids exactly', scope: 'outbids' } };
+    expect(getTestLabel(explicit)).toBe('outbids: Outbids exactly');
+    expect(getTestLabel({ ...explicit, haskell: { ...explicit.haskell!, scope: undefined } })).toBe('outbids_exact');
+    expect(getTestLabel(mintValid)).toBe('mint succeeds');
   });
 
   test('a generator group has no runnable selection', () => {

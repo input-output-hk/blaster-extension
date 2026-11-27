@@ -79,7 +79,7 @@ export default class Database {
   /**
    * Fills in a Haskell property's title and content after its bundle was generated.
    */
-  public async updateHaskellDetails(workspaceId: string, testId: string, details: { title?: string; content?: string }): Promise<void> {
+  public async updateHaskellDetails(workspaceId: string, testId: string, details: { title?: string; content?: string; scope?: string }): Promise<void> {
     return await updateHaskellDetails(this.database!, workspaceId, testId, details);
   }
 

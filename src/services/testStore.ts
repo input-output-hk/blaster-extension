@@ -140,7 +140,7 @@ export default class TestStore {
   /**
    * Fills in a Haskell property's title and content once its generator's bundle exists.
    */
-  private async updateHaskellDetails(workspaceId: string, testId: string, details: { title?: string; content?: string }): Promise<void> {
+  private async updateHaskellDetails(workspaceId: string, testId: string, details: { title?: string; content?: string; scope?: string }): Promise<void> {
     await this.database.updateHaskellDetails(workspaceId, testId, details);
   }
 
