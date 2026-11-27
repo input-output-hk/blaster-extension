@@ -15,6 +15,7 @@ export type ListedGenerator = {
   target: string;
   cwd: string;
   argv: Array<string>;
+  sources?: Array<string>;
   properties: Array<ListedProperty> | null;
   propertyDiscoveryError?: string;
 };
@@ -66,6 +67,7 @@ function isProperty(value: unknown): value is ListedProperty {
 function isGenerator(value: unknown): value is ListedGenerator {
   if (!isRecord(value) || typeof value.target !== 'string' || value.target === '' || typeof value.cwd !== 'string') return false;
   if (!Array.isArray(value.argv) || value.argv.length === 0 || !value.argv.every(isString)) return false;
+  if (value.sources !== undefined && (!Array.isArray(value.sources) || !value.sources.every(isString))) return false;
   if (value.properties === null) return typeof value.propertyDiscoveryError === 'string';
   return Array.isArray(value.properties) && value.properties.every(isProperty);
 }

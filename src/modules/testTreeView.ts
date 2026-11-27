@@ -49,6 +49,16 @@ export default class TestTreeView {
     }
   }
 
+  /**
+   * Refreshes after files changed on disk, regenerating only the Haskell generators they affect.
+   * Does nothing when no generator is affected.
+   */
+  public refreshChangedFiles(paths: Array<string>): void {
+    if (!this.webview || !this.context.testStore.markHaskellChanges(paths)) return;
+    this.context.outputChannel.appendLine(`> Haskell sources changed, refreshing properties: ${paths.join(', ')}`);
+    this.fetchTestTree(false);
+  }
+
   private onWebviewResolved(webview: vscode.Webview, view: vscode.WebviewView): void {
     this.webview = webview;
     view.onDidDispose(() => {
@@ -129,13 +139,13 @@ export default class TestTreeView {
     return false;
   }
 
-  private fetchTestTree(): void {
+  private fetchTestTree(regenerateAll = true): void {
     if (this.pendingFetch) {
       return
     };
     // Refresh clears the dependency error first; a newer proof run error stays
     if (this.context.statusBarItem.text === DEPENDENCY_STATUS) this.context.statusBarItem.hide();
-    this.pendingFetch = this.context.testStore.fetchTestTree().then(testTree => {
+    this.pendingFetch = this.context.testStore.fetchTestTree(regenerateAll).then(testTree => {
       if (testTree === undefined) return this.reportMissingDependency();
       this.sendTestTreeToWebview(testTree);
       this.reportDiscoveryFileErrors();

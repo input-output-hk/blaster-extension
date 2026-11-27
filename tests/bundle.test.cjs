@@ -292,6 +292,37 @@ test('Stop All and a new refresh cancel the generation pass', async t => {
   assert.equal(store.generators.getState('workspace', BLUEPRINT).kind, 'generating');
 });
 
+test('a changed source only regenerates the generators that list it', async t => {
+  const AUCTION = 'docusaurus-examples:exe:example-ual-auction';
+  const root = makeRoot(t);
+  const { store, output } = await setupStore(t, root);
+  /** Lists the targets the fake generator was run for. */
+  const runs = () => output.lines.filter(line => line.startsWith('> ') && line.includes('fake-generator.js')).map(line => line.split(' ')[3]);
+  await store.fetchTestTree();
+  await store.generators.whenGenerated();
+  assert.equal(runs().length, 7);
+
+  const auctionSource = JSON.parse(readFileSync(LIST_FIXTURE, 'utf8')).find(entry => entry.target === AUCTION).sources[0];
+  assert.equal(store.markHaskellChanges([join(root, 'unrelated/Other.hs')]), false);
+  assert.equal(store.markHaskellChanges([join(root, auctionSource)]), true);
+  const discovered = (await store.fetchTestTree(false)).workspaces.workspace.nodes;
+  const kept = discovered[PURPOSE].tests[`ual:${PURPOSE}:spendingOnly_purpose_isolation`].haskell;
+  assert.equal(kept.title, 'T spendingOnly_purpose_isolation');
+  assert.equal(kept.scope, 'spendingOnly');
+  const changed = Object.values(discovered[AUCTION].tests).find(test => test.haskell.propertyId === 'outbids_exact').haskell;
+  assert.equal(changed.scope, undefined);
+  await store.generators.whenGenerated();
+  assert.deepEqual(runs().slice(7), [AUCTION]);
+  const nodes = (await store.getTestTree()).workspaces.workspace.nodes;
+  for (const node of Object.values(nodes)) assert.deepEqual(node.state, { kind: 'ready' });
+  assert.equal(nodes[PURPOSE].tests[`ual:${PURPOSE}:spendingOnly_purpose_isolation`].haskell.title, 'T spendingOnly_purpose_isolation');
+
+  assert.equal(store.markHaskellChanges([join(root, 'docusaurus-examples.cabal')]), true);
+  await store.fetchTestTree(false);
+  await store.generators.whenGenerated();
+  assert.equal(runs().length, 15);
+});
+
 test('clearing results keeps generator states and template details', async t => {
   const { store } = await setupStore(t, makeRoot(t));
   await store.fetchTestTree();

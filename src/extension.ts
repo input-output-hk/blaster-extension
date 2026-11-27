@@ -5,6 +5,7 @@ import TestStore from './services/testStore';
 import TestTreeView from './modules/testTreeView';
 import TestResultView from './modules/testResultView';
 import BundleDocuments from './modules/bundleDocuments';
+import HaskellWatcher from './modules/haskellWatcher';
 
 export type BlasterContext = {
   extension: vscode.ExtensionContext;
@@ -56,6 +57,7 @@ export async function activate(context: vscode.ExtensionContext) {
     testTreeView.activate(blasterContext);
     testResultView.activate(blasterContext);
     bundleDocuments.activate(blasterContext);
+    new HaskellWatcher().activate(blasterContext);
   } catch (error) {
     outputChannel.appendLine(`> ERROR initializing Blaster: ${String(error)}`);
     vscode.window.showErrorMessage(`Unable to initialize Blaster: ${String(error)}`);

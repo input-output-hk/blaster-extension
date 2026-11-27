@@ -189,7 +189,7 @@ export default class TestStore {
   }
 
   // Resolves undefined when lean-blaster is not found
-  public async fetchTestTree(): Promise<TestTree | undefined> {
+  public async fetchTestTree(regenerateAll = true): Promise<TestTree | undefined> {
     return this.enqueueAction('fetch', async signal => {
       this.generators.stop();
       try {
@@ -204,7 +204,7 @@ export default class TestStore {
         this.discoveryFileErrors = fileErrors;
         this.isTestTreeFetched = true;
         this.run = undefined;
-        this.generators.generate(this.updateHaskellDetails.bind(this));
+        this.generators.generate(this.updateHaskellDetails.bind(this), regenerateAll);
         return this.applyFileErrors(storedTestTree);
       } catch (error) {
         if (!(error instanceof vscode.CancellationError)) {
@@ -223,6 +223,13 @@ export default class TestStore {
 
   public getDiscoveryError(): string | undefined {
     return this.discoveryError;
+  }
+
+  /**
+   * Marks the Haskell generators that changed files affect. Tells whether a refresh is needed.
+   */
+  public markHaskellChanges(paths: Array<string>): boolean {
+    return this.generators.markChanged(paths);
   }
 
   /**

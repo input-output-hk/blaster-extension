@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 
 import { detectLanguages } from './generators/project';
 import { LIST_GENERATORS_SCRIPT, makeHaskellTestId, parseGenerators, toHaskellTest } from './generators/discover';
@@ -26,6 +26,34 @@ function getGeneratorKey(workspaceId: string, target: string): string {
  */
 export function getGeneratorLabel(target: string): string {
   return target.split(':').at(-1) ?? target;
+}
+
+/**
+ * Tells whether a changed file affects every generator of its root: a Cabal file, the Cabal project or
+ * the generator listing script.
+ */
+function isProjectFile(path: string): boolean {
+  const name = basename(path);
+  return name === 'cabal.project' || name.endsWith('.cabal') || path.replaceAll('\\', '/').endsWith(LIST_GENERATORS_SCRIPT);
+}
+
+/**
+ * Returns the absolute paths of a generator's source files.
+ */
+function getSourcePaths(generator: ListedGenerator): Set<string> {
+  const paths = new Set<string>();
+  for (const source of generator.sources ?? []) paths.add(resolve(generator.cwd, source));
+  return paths;
+}
+
+/**
+ * Returns what a property takes from the generated assurance.json: its scope, plus the title and content
+ * of a template (explicit properties already have theirs from the source).
+ */
+function getGeneratedDetails(kind: HaskellProperty['kind'], details: AssuranceProperty): { title?: string; content?: string; scope?: string } {
+  return kind === 'template'
+    ? { title: details.title, content: details.content, scope: details.scope }
+    : { scope: details.scope };
 }
 
 /**
@@ -71,6 +99,9 @@ export default class Generators {
   private entries: Array<GeneratorEntry> = [];
   private states: Map<string, GeneratorState> = new Map();
   private bundles: Map<string, Bundle> = new Map();
+  private dirty: Set<string> = new Set();
+  private sources: Map<string, Set<string>> = new Map();
+  private hasRootError = false;
   private controller?: AbortController;
   private pass: Promise<void> = Promise.resolve();
   private listeners: Set<() => void> = new Set();
@@ -92,6 +123,8 @@ export default class Generators {
     const targets = new Map<string, Set<string>>();
     const entries: Array<GeneratorEntry> = [];
     const states = new Map<string, GeneratorState>();
+    const sources = new Map<string, Set<string>>();
+    let hasRootError = false;
 
     for (const workspace of Object.values(testTree.workspaces)) {
       if (!detectLanguages(workspace.path).haskell) continue;
@@ -106,11 +139,13 @@ export default class Generators {
         const message = error instanceof Error ? error.message : String(error);
         this.context.outputChannel.appendLine(`> ERROR ${message}`);
         fileErrors.push({ workspaceId: workspace.id, group: [LIST_GENERATORS_SCRIPT], message });
+        hasRootError = true;
         continue;
       }
 
       for (const generator of generators) {
         workspaceTargets.add(generator.target);
+        sources.set(getGeneratorKey(workspace.id, generator.target), getSourcePaths(generator));
         if (generator.properties === null) {
           const message = generator.propertyDiscoveryError ?? 'Unable to list properties.';
           fileErrors.push({ workspaceId: workspace.id, group: [generator.target], message, type: 'generator' });
@@ -118,9 +153,14 @@ export default class Generators {
         }
         entries.push({ workspaceId: workspace.id, generator: { ...generator, properties: generator.properties } });
         states.set(getGeneratorKey(workspace.id, generator.target), { kind: 'pending' });
+        const generated = this.getKeptProperties(workspace.id, generator.target);
         const tests: GenericMap<Test> = {};
         for (const [index, property] of generator.properties.entries()) {
           const test = toHaskellTest(workspace.id, generator, property, index);
+          const details = generated?.get(property.id);
+          if (details !== undefined && test.haskell !== undefined) {
+            test.haskell = { ...test.haskell, ...getGeneratedDetails(property.kind, details) };
+          }
           tests[test.id] = test;
         }
         workspace.nodes[generator.target] = {
@@ -132,14 +172,55 @@ export default class Generators {
     this.targets = targets;
     this.entries = entries;
     this.states = states;
+    this.sources = sources;
+    this.hasRootError = hasRootError;
     return fileErrors;
   }
 
   /**
-   * Starts generating the bundles of the last discovered generators, one at a time, in the background.
-   * Cancels a pass already running. Template properties get their title and content through `onDetails`.
+   * Returns the generated properties of a generator that keeps its last bundle (not marked changed), by
+   * id, so discovery can show their details right away. Undefined when it will be regenerated.
    */
-  public generate(onDetails: HaskellDetailsUpdate): void {
+  private getKeptProperties(workspaceId: string, target: string): Map<string, AssuranceProperty> | undefined {
+    const key = getGeneratorKey(workspaceId, target);
+    const bundle = this.bundles.get(key);
+    if (bundle === undefined || this.dirty.has(key)) return undefined;
+    try {
+      return new Map(getAssuranceProperties(bundle.records).map(toAssuranceEntry));
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Marks the generators that changed files affect, so the next pass regenerates them: those listing a
+   * file in their sources, or all of them for a Cabal file or the listing script. Tells whether the
+   * change matters at all (it always does while a root's listing failed).
+   */
+  public markChanged(paths: Array<string>): boolean {
+    let isRelevant = this.hasRootError;
+    for (const path of paths) {
+      const isProject = isProjectFile(path);
+      for (const [key, files] of this.sources) {
+        if (isProject || files.has(path)) {
+          this.dirty.add(key);
+          isRelevant = true;
+        }
+      }
+      if (isProject) isRelevant = true;
+    }
+    return isRelevant;
+  }
+
+  /**
+   * Starts generating the bundles of the last discovered generators, one at a time, in the background.
+   * Cancels a pass already running. With `regenerateAll` false, a generator whose sources didn't change
+   * keeps its last bundle. Template properties get their title and content through `onDetails`.
+   */
+  public generate(onDetails: HaskellDetailsUpdate, regenerateAll = true): void {
+    if (regenerateAll) {
+      for (const { workspaceId, generator } of this.entries) this.dirty.add(getGeneratorKey(workspaceId, generator.target));
+    }
     this.stop();
     const controller = new AbortController();
     this.controller = controller;
@@ -205,13 +286,23 @@ export default class Generators {
     const failedTargets: Array<string> = [];
     for (const { workspaceId, generator } of entries) {
       if (signal.aborted) return;
+      const key = getGeneratorKey(workspaceId, generator.target);
+      const previous = this.bundles.get(key);
+      if (previous !== undefined && !this.dirty.has(key) && !await this.reuseBundle(workspaceId, generator, previous, onDetails)) {
+        this.dirty.add(key);
+      }
+    }
+    for (const { workspaceId, generator } of entries) {
+      if (signal.aborted) return;
       if (this.getState(workspaceId, generator.target)?.kind !== 'pending') continue;
+      const key = getGeneratorKey(workspaceId, generator.target);
       this.setState(workspaceId, generator.target, { kind: 'generating' });
       try {
         const bundle = await generateBundle(generator.argv, generator.cwd, this.context.outputChannel, signal);
         const properties = getAssuranceProperties(bundle.records);
         this.checkPropertyIds(generator, properties);
-        this.bundles.set(getGeneratorKey(workspaceId, generator.target), bundle);
+        this.bundles.set(key, bundle);
+        this.dirty.delete(key);
         await this.updateDetails(workspaceId, generator, properties, onDetails);
         this.setState(workspaceId, generator.target, { kind: 'ready' });
       } catch (error) {
@@ -227,6 +318,24 @@ export default class Generators {
     }
     if (signal.aborted) return;
     for (const listener of this.generatedListeners) listener(failedTargets);
+  }
+
+  /**
+   * Marks an unchanged generator ready again with its last bundle, and fills its property details from it
+   * (discovery replaced them). Returns false when the bundle no longer matches the discovered properties,
+   * so the caller regenerates it.
+   */
+  private async reuseBundle(workspaceId: string, generator: GeneratorEntry['generator'], bundle: Bundle, onDetails: HaskellDetailsUpdate): Promise<boolean> {
+    let properties: Array<AssuranceProperty>;
+    try {
+      properties = getAssuranceProperties(bundle.records);
+      this.checkPropertyIds(generator, properties);
+    } catch {
+      return false;
+    }
+    await this.updateDetails(workspaceId, generator, properties, onDetails);
+    this.setState(workspaceId, generator.target, { kind: 'ready' });
+    return true;
   }
 
   /**
@@ -258,10 +367,7 @@ export default class Generators {
     for (const property of generator.properties) {
       const details = generated.get(property.id);
       if (details === undefined) continue;
-      const update = property.kind === 'template'
-        ? { title: details.title, content: details.content, scope: details.scope }
-        : { scope: details.scope };
-      await onDetails(workspaceId, makeHaskellTestId(generator.target, property.id), update);
+      await onDetails(workspaceId, makeHaskellTestId(generator.target, property.id), getGeneratedDetails(property.kind, details));
     }
   }
 

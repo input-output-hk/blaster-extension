@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { getGroupInfo, getTestLabel, getTestTooltip, getVisibleItems, isRunnableTest, parseFilterText } from './treeUtils';
+import { getGroupInfo, getTestLabel, getVisibleItems, isRunnableTest, parseFilterText } from './treeUtils';
 
 import type { FilterContext } from './filterTags';
 
@@ -245,13 +245,6 @@ describe('Haskell properties', () => {
   test('are not runnable yet', () => {
     expect(isRunnableTest(property)).toBe(false);
     expect(isRunnableTest(mintValid)).toBe(true);
-  });
-
-  test('show their UAL title on hover, once they have one', () => {
-    const titled: Test = { ...property, haskell: { ...property.haskell!, title: 'Outbids exactly' } };
-    expect(getTestTooltip(titled)).toBe('Outbids exactly');
-    expect(getTestTooltip(property)).toBeUndefined();
-    expect(getTestTooltip(mintValid)).toBeUndefined();
   });
 
   test('a generated property shows its script and title, anything else its name', () => {

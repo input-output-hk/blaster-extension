@@ -89,7 +89,6 @@ const TreeView: React.FC<TreeViewProps> = ({
         onOpenBundleFile={onOpenBundleFile}
       />
       <Tooltip id="tree-node-action" place="bottom" />
-      <Tooltip id="tree-node-name" place="bottom" maxWidth="400px" />
     </div>
   );
 };

@@ -36,9 +36,6 @@ export const getTestLabel = (test: Test): string => {
   return `${haskell.scope}: ${haskell.title}`;
 };
 
-/** Returns the hover text of a test row: a Haskell property's UAL title, nothing for Lean tests. */
-export const getTestTooltip = (test: Test): string | undefined => test.haskell?.title;
-
 export const getGroupInfo = (node: TestTreeGroupNode): TestGroupInfo => {
   const tests: Array<Test> = getGroupTests(node);
   const runnableTests = tests.filter(isRunnableTest);
