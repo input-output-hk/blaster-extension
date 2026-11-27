@@ -4,12 +4,14 @@ import * as vscode from 'vscode';
 import TestStore from './services/testStore';
 import TestTreeView from './modules/testTreeView';
 import TestResultView from './modules/testResultView';
+import BundleDocuments from './modules/bundleDocuments';
 
 export type BlasterContext = {
   extension: vscode.ExtensionContext;
   testStore: TestStore;
   testTreeView: TestTreeView;
   testResultView: TestResultView;
+  bundleDocuments: BundleDocuments;
   outputChannel: vscode.OutputChannel;
   statusBarItem: vscode.StatusBarItem;
 };
@@ -26,6 +28,9 @@ export async function activate(context: vscode.ExtensionContext) {
   // Init test result view
   const testResultView = new TestResultView();
 
+  // Init generated bundle documents
+  const bundleDocuments = new BundleDocuments();
+
   // Init output channel
   const outputChannel = vscode.window.createOutputChannel('Blaster');
 
@@ -38,6 +43,7 @@ export async function activate(context: vscode.ExtensionContext) {
     testStore,
     testTreeView,
     testResultView,
+    bundleDocuments,
     outputChannel,
     statusBarItem,
   };
@@ -49,6 +55,7 @@ export async function activate(context: vscode.ExtensionContext) {
     await testStore.initialize(blasterContext);
     testTreeView.activate(blasterContext);
     testResultView.activate(blasterContext);
+    bundleDocuments.activate(blasterContext);
   } catch (error) {
     outputChannel.appendLine(`> ERROR initializing Blaster: ${String(error)}`);
     vscode.window.showErrorMessage(`Unable to initialize Blaster: ${String(error)}`);

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { GenericWebviewViewProvider } from '../utils/webview';
+import { getGeneratorLabel } from '../services/generators';
 
 import type { BlasterContext } from '../extension';
 
@@ -34,7 +35,8 @@ export default class TestTreeView {
       vscode.window.onDidChangeVisibleTextEditors(this.sendEditorFilesToWebview.bind(this)),
       vscode.window.tabGroups.onDidChangeTabs(this.sendEditorFilesToWebview.bind(this)),
       context.testStore.onActionStateUpdate(this.onActionStateUpdate.bind(this)),
-      context.testStore.onGeneratorStateUpdate(this.getTestTree.bind(this))
+      context.testStore.onGeneratorStateUpdate(this.getTestTree.bind(this)),
+      context.testStore.onGenerationComplete(this.reportGenerationErrors.bind(this))
     );
 
     this.context.testStore.onTestTreeUpdate(this.onTestTreeUpdate.bind(this));
@@ -72,6 +74,9 @@ export default class TestTreeView {
             break;
           case 'test-tree-open-location':
             this.openTestLocation(message.payload);
+            break;
+          case 'test-tree-open-bundle-file':
+            this.openBundleFile(message.payload);
             break;
           case 'test-tree-update-open-state': {
             const { isOpen, workspaceId, group } = message.payload;
@@ -172,6 +177,13 @@ export default class TestTreeView {
     vscode.window.showTextDocument(vscode.Uri.file(path), { selection }).then(undefined, error => this.reportError(error));
   }
 
+  /**
+   * Opens a file of a Haskell generator's generated bundle (read-only).
+   */
+  private openBundleFile(payload: OpenBundleFilePayload): void {
+    this.context.bundleDocuments.open(payload).catch(this.reportError.bind(this));
+  }
+
   private runAllTests(): void {
     this.context.testStore.runAllTests().catch(error => this.reportError(error));
   }
@@ -218,6 +230,24 @@ export default class TestTreeView {
     ).then(action => {
       if (action) this.showOutput();
     });
+  }
+
+  /**
+   * Shows one notification for a finished generation pass, listing the generators that failed.
+   */
+  private reportGenerationErrors(failedTargets: Array<string>): void {
+    if (failedTargets.length === 0) return;
+    const generators = failedTargets.map(getGeneratorLabel).join(', ');
+    void vscode.window.showErrorMessage(
+      `Bundle Generation Failed: ${generators}. View output for more details.`, 'Show Output'
+    ).then(this.handleGenerationErrorAction.bind(this));
+  }
+
+  /**
+   * Opens the Blaster output when "Show Output" is picked on the generation notification.
+   */
+  private handleGenerationErrorAction(action: string | undefined): void {
+    if (action) this.showOutput();
   }
 
   private sendTestTreeErrorToWebview(): void {

@@ -3,7 +3,7 @@ import { VscodeTreeItem } from '@vscode-elements/react-elements';
 import TestStatusIcon from '../../../../components/TestStatusIcon';
 import { formatRunTime } from '../../../../utils/format';
 import { getTestRunLocation } from '../../../../../../src/utils/testRun';
-import { HASKELL_RUN_UNAVAILABLE, isRunnableTest } from '../../utils/treeUtils';
+import { getTestTooltip, HASKELL_RUN_UNAVAILABLE, isRunnableTest } from '../../utils/treeUtils';
 
 interface TreeViewTestProps {
   test: Test;
@@ -65,6 +65,7 @@ const TreeViewTest: React.FC<TreeViewTestProps> = ({
         <span
           className="flex-1 min-w-0 overflow-hidden whitespace-nowrap text-ellipsis"
           data-tooltip-id="tree-node-name"
+          data-tooltip-content={getTestTooltip(test)}
           data-node-name={test.name}
         >
           {test.name}

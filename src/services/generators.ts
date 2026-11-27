@@ -22,6 +22,13 @@ function getGeneratorKey(workspaceId: string, target: string): string {
 }
 
 /**
+ * Returns the executable name of a generator target (`package:exe:name` → `name`).
+ */
+export function getGeneratorLabel(target: string): string {
+  return target.split(':').at(-1) ?? target;
+}
+
+/**
  * Returns the id of an assurance property.
  */
 function getAssuranceId(property: AssuranceProperty): string {
@@ -67,6 +74,7 @@ export default class Generators {
   private controller?: AbortController;
   private pass: Promise<void> = Promise.resolve();
   private listeners: Set<() => void> = new Set();
+  private generatedListeners: Set<(failedTargets: Array<string>) => void> = new Set();
 
   /**
    * Keeps the extension context for the output channel.
@@ -175,6 +183,14 @@ export default class Generators {
   }
 
   /**
+   * Calls `callback` with the failed generator targets each time a generation pass finishes. Not called
+   * for a cancelled pass.
+   */
+  public onGenerated(callback: (failedTargets: Array<string>) => void): void {
+    this.generatedListeners.add(callback);
+  }
+
+  /**
    * Sets a generator's state and notifies the listeners.
    */
   private setState(workspaceId: string, target: string, state: GeneratorState): void {
@@ -186,6 +202,7 @@ export default class Generators {
    * Generates every pending generator in order. A failure only affects its own generator.
    */
   private async runPass(entries: Array<GeneratorEntry>, onDetails: HaskellDetailsUpdate, signal: AbortSignal): Promise<void> {
+    const failedTargets: Array<string> = [];
     for (const { workspaceId, generator } of entries) {
       if (signal.aborted) return;
       if (this.getState(workspaceId, generator.target)?.kind !== 'pending') continue;
@@ -205,8 +222,11 @@ export default class Generators {
         const message = error instanceof Error ? error.message : String(error);
         this.context.outputChannel.appendLine(`> ERROR ${generator.target}: ${message}`);
         this.setState(workspaceId, generator.target, { kind: 'error', message });
+        failedTargets.push(generator.target);
       }
     }
+    if (signal.aborted) return;
+    for (const listener of this.generatedListeners) listener(failedTargets);
   }
 
   /**

@@ -1,4 +1,6 @@
 import { execFile, spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { delimiter, join } from 'node:path';
 import { createInterface } from 'node:readline';
 
 export type BundleRecord = {
@@ -16,6 +18,7 @@ export type AssuranceProperty = {
   id: string;
   title?: string;
   content?: string;
+  checkingContext?: string;
 };
 
 type BundleLog = {
@@ -92,7 +95,37 @@ function toAssuranceProperty(value: unknown, index: number): AssuranceProperty {
     id: value.id,
     title: typeof statement.text === 'string' ? statement.text : undefined,
     content: typeof formal.source === 'string' ? formal.source : undefined,
+    checkingContext: typeof value.checkingContext === 'string' ? value.checkingContext : undefined,
   };
+}
+
+/**
+ * Returns the path of a property's checking context record (`checking-<checkingContext>.json`), as named
+ * by the generated assurance.json. Throws when the property or its context isn't in the bundle.
+ */
+export function getCheckingContextPath(records: Array<BundleRecord>, propertyId: string): string {
+  let checkingContext: string | undefined;
+  for (const property of getAssuranceProperties(records)) {
+    if (property.id === propertyId) checkingContext = property.checkingContext;
+  }
+  if (checkingContext === undefined) {
+    throw new Error(`The generated assurance.json has no checking context for ${propertyId}.`);
+  }
+  const path = `checking-${checkingContext}.json`;
+  if (findRecord(records, path) === undefined) {
+    throw new Error(`The generated bundle has no ${path}.`);
+  }
+  return path;
+}
+
+/**
+ * Returns the bundle record with the given path.
+ */
+export function findRecord(records: Array<BundleRecord>, path: string): BundleRecord | undefined {
+  for (const record of records) {
+    if (record.path === path) return record;
+  }
+  return undefined;
 }
 
 /**
@@ -116,14 +149,41 @@ function killTree(pid: number): void {
 function ignoreKillError(): void {}
 
 /**
+ * Tells whether a command can be started: a path that exists, or a name found in one of the PATH folders.
+ */
+export function isOnPath(command: string, path: string = process.env.PATH ?? ''): boolean {
+  if (command.includes('/') || command.includes('\\')) return existsSync(command);
+  const names = process.platform === 'win32' ? [command, `${command}.exe`] : [command];
+  for (const dir of path.split(delimiter)) {
+    if (dir === '') continue;
+    for (const name of names) {
+      if (existsSync(join(dir, name))) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Runs the argv inside the project's Nix dev shell (`nix develop . --accept-flake-config -c …`) when its command isn't on PATH
+ * but the cwd has a flake.nix and nix is installed, so VS Code doesn't have to be started from the shell.
+ * Returns the argv unchanged otherwise.
+ */
+export function withDevShell(argv: Array<string>, cwd: string, path: string = process.env.PATH ?? ''): Array<string> {
+  if (isOnPath(argv[0], path)) return argv;
+  if (!existsSync(join(cwd, 'flake.nix')) || !isOnPath('nix', path)) return argv;
+  return ['nix', 'develop', '.', '--accept-flake-config', '-c', ...argv];
+}
+
+/**
  * Runs a generator's argv from its cwd and collects its `--ndjson` records. stderr and any stdout line
  * that isn't a record go to the log. Rejects on a non-zero exit, a missing command or an abort, so a
  * partial bundle is never returned.
  */
 export function generateBundle(argv: Array<string>, cwd: string, log: BundleLog, signal: AbortSignal): Promise<Bundle> {
   signal.throwIfAborted();
-  const [command, ...args] = argv;
-  log.appendLine(`> ${argv.join(' ')}  (in ${cwd})`);
+  const resolved = withDevShell(argv, cwd);
+  const [command, ...args] = resolved;
+  log.appendLine(`> ${resolved.join(' ')}  (in ${cwd})`);
 
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { cwd, detached: process.platform !== 'win32' });
@@ -150,7 +210,7 @@ export function generateBundle(argv: Array<string>, cwd: string, log: BundleLog,
     /** Explains a generator that couldn't be started. */
     const handleError = (error: NodeJS.ErrnoException): void => {
       failure = error.code === 'ENOENT'
-        ? new Error(`${command} not found on PATH. Start VS Code from the project's development shell (e.g. nix develop) so ${command} is available.`)
+        ? new Error(`${command} not found on PATH, and the project has no Nix flake (flake.nix + nix) to load it from. Install the project's Haskell tools (cabal, ghc) or Nix.`)
         : error;
     };
 

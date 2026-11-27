@@ -25,7 +25,7 @@ Module._load = function (id, ...args) {
 };
 const TestStore = require('../out/services/testStore').default;
 const {
-  parseBundleLine, getRecordBytes, getAssuranceProperties, generateBundle,
+  parseBundleLine, getRecordBytes, getAssuranceProperties, generateBundle, withDevShell, getCheckingContextPath, findRecord,
 } = require('../out/services/generators/bundle');
 Module._load = load;
 
@@ -141,8 +141,18 @@ test('assurance properties come from statement.text and statement.formal.source'
     id: 'outbids_exact',
     title: 'The separately compiled helper returns the native comparison result.',
     content: '∀ (old proposed : Integer), outbids_returns old proposed (decide (old <= proposed))',
+    checkingContext: 'outbids_exact',
   });
   assert.throws(() => getAssuranceProperties([]), /no assurance\.json/);
+});
+
+test('the checking context of a property is named by assurance.json', () => {
+  const records = readAuction();
+  assert.equal(getCheckingContextPath(records, 'outbids_exact'), 'checking-outbids_exact.json');
+  assert.equal(findRecord(records, 'checking-outbids_exact.json').encoding, 'utf8');
+  assert.throws(() => getCheckingContextPath(records, 'no_such_property'), /no checking context for no_such_property/);
+  const withoutFile = records.filter(record => record.path !== 'checking-outbids_exact.json');
+  assert.throws(() => getCheckingContextPath(withoutFile, 'outbids_exact'), /has no checking-outbids_exact\.json/);
 });
 
 test('generateBundle collects records and logs noise and stderr', async t => {
@@ -159,11 +169,29 @@ test('generateBundle collects records and logs noise and stderr', async t => {
   assert.ok(log.lines.some(line => line.includes('ghc: build failed')));
 });
 
-test('a missing command explains the development shell', async () => {
+test('a missing command without a Nix flake explains what to install', async () => {
   await assert.rejects(
     generateBundle(['blaster-no-such-cabal', 'run'], tmpdir(), makeLog(), new AbortController().signal),
-    /blaster-no-such-cabal not found on PATH\. Start VS Code from the project's development shell/
+    /blaster-no-such-cabal not found on PATH, and the project has no Nix flake/
   );
+});
+
+test('a command missing from PATH runs in the Nix dev shell when the root has a flake', t => {
+  const root = mkdtempSync(join(tmpdir(), 'blaster-nix-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const nixBin = join(root, 'nix-bin');
+  const cabalBin = join(root, 'cabal-bin');
+  mkdirSync(nixBin);
+  mkdirSync(cabalBin);
+  writeFileSync(join(nixBin, 'nix'), '');
+  writeFileSync(join(cabalBin, 'cabal'), '');
+  const argv = ['cabal', 'run', '-v0', 'target', '--', '--ndjson'];
+
+  assert.deepEqual(withDevShell(argv, root, nixBin), argv);
+  writeFileSync(join(root, 'flake.nix'), '');
+  assert.deepEqual(withDevShell(argv, root, nixBin), ['nix', 'develop', '.', '--accept-flake-config', '-c', ...argv]);
+  assert.deepEqual(withDevShell(argv, root, [cabalBin, nixBin].join(require('node:path').delimiter)), argv);
+  assert.deepEqual(withDevShell(argv, root, ''), argv);
 });
 
 test('aborting kills the generator and rejects with the abort reason', async t => {
@@ -207,6 +235,37 @@ test('one failing generator does not stop the others', async t => {
   assert.deepEqual(nodes[PURPOSE].state, { kind: 'ready' });
   assert.equal(store.generators.getBundle('workspace', AUCTION), undefined);
   assert.ok(output.lines.some(line => line.startsWith(`> ERROR ${AUCTION}`)));
+});
+
+test('a finished pass reports its failed generators once', async t => {
+  const AUCTION = 'docusaurus-examples:exe:example-ual-auction';
+  const { store } = await setupStore(t, makeRoot(t, { [AUCTION]: 'fail' }));
+  const reports = [];
+  store.onGenerationComplete(failedTargets => reports.push(failedTargets));
+  await store.fetchTestTree();
+  await store.generators.whenGenerated();
+  assert.deepEqual(reports, [[AUCTION]]);
+});
+
+test('a pass with no failures reports an empty list', async t => {
+  const { store } = await setupStore(t, makeRoot(t));
+  const reports = [];
+  store.onGenerationComplete(failedTargets => reports.push(failedTargets));
+  await store.fetchTestTree();
+  await store.generators.whenGenerated();
+  assert.deepEqual(reports, [[]]);
+});
+
+test('a cancelled pass reports nothing', async t => {
+  const BLUEPRINT = 'docusaurus-examples:exe:example-ual-blueprint';
+  const { store } = await setupStore(t, makeRoot(t, { [BLUEPRINT]: 'hang' }));
+  const reports = [];
+  store.onGenerationComplete(failedTargets => reports.push(failedTargets));
+  await store.fetchTestTree();
+  while (store.generators.getState('workspace', BLUEPRINT)?.kind !== 'generating') await new Promise(resolve => setTimeout(resolve, 10));
+  store.stopAll();
+  await store.generators.whenGenerated();
+  assert.deepEqual(reports, []);
 });
 
 test('Stop All and a new refresh cancel the generation pass', async t => {

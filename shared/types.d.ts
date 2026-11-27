@@ -231,6 +231,13 @@ type OpenResultPayload = {
   testId: string;
 };
 
+// Opens a generated bundle file: a property's checking context, or a pick of all the generator's files
+type OpenBundleFilePayload = {
+  workspaceId: string;
+  generator: string;
+  propertyId?: string;
+};
+
 type UpdateOpenStatePayload = {
   isOpen: boolean;
   workspaceId: string;
@@ -252,6 +259,7 @@ type WebviewToExtensionMessage =
   | { type: "test-tree-run"; payload: TestRunPayload }
   | { type: "test-tree-open-result"; payload: OpenResultPayload }
   | { type: "test-tree-open-location"; payload: TestLocation }
+  | { type: "test-tree-open-bundle-file"; payload: OpenBundleFilePayload }
   | { type: "test-tree-update-open-state"; payload: UpdateOpenStatePayload }
   | { type: "test-tree-open-folder" }
   | { type: "test-tree-open-install-guide" };

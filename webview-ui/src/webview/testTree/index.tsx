@@ -109,6 +109,11 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
     vscode.postMessage({ type: 'test-tree-open-location', payload: location } as WebviewToExtensionMessage);
   };
 
+  /** Asks the extension to open a file of a Haskell generator's generated bundle. */
+  const onOpenBundleFile = (payload: OpenBundleFilePayload): void => {
+    vscode.postMessage({ type: 'test-tree-open-bundle-file', payload } as WebviewToExtensionMessage);
+  };
+
   const onOpenTestResult = (workspaceId: string, testId: string) => {
     vscode.postMessage({ type: 'test-tree-open-result', payload: { workspaceId, testId } } as WebviewToExtensionMessage);
   };
@@ -139,6 +144,7 @@ const TestTreeView: React.FC<Props> = ({ vscode }) => {
             onUpdateOpenTestTreeNode={onUpdateOpenTestTreeNode}
             onOpenTestResult={onOpenTestResult}
             onOpenTestLocation={onOpenTestLocation}
+            onOpenBundleFile={onOpenBundleFile}
           />
         }
       </div>

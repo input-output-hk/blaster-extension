@@ -16,10 +16,11 @@ interface ContextMenuState {
 interface Props {
   onRunTest: (testRuns: Array<TestRun>) => void;
   onOpenTestResult: (workspaceId: string, testId: string) => void;
+  onOpenBundleFile: (payload: OpenBundleFilePayload) => void;
 }
 
 const TreeViewContextMenu: React.FC<Props & React.RefAttributes<Handle>> = forwardRef<Handle, Props>(
-  ({ onRunTest, onOpenTestResult }, ref) => {
+  ({ onRunTest, onOpenTestResult, onOpenBundleFile }, ref) => {
     const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
     useImperativeHandle(ref, () => ({
@@ -44,6 +45,9 @@ const TreeViewContextMenu: React.FC<Props & React.RefAttributes<Handle>> = forwa
           break;
         case 'results':
           onOpenTestResult(entry.test.workspaceId, entry.test.id);
+          break;
+        case 'files':
+          onOpenBundleFile(entry.payload);
           break;
       }
     };

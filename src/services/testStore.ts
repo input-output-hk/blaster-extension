@@ -3,6 +3,7 @@ import { queue } from 'async';
 
 import Command from './command';
 import Generators from './generators';
+import type { Bundle } from './generators/bundle';
 import Database from './database';
 import { BlasterContext } from '../extension';
 
@@ -30,6 +31,8 @@ export default class TestStore {
   public readonly onActionStateUpdate = this.actionStateEmitter.event;
   private generatorStateEmitter = new vscode.EventEmitter<void>();
   public readonly onGeneratorStateUpdate = this.generatorStateEmitter.event;
+  private generationEmitter = new vscode.EventEmitter<Array<string>>();
+  public readonly onGenerationComplete = this.generationEmitter.event;
 
   private isTestTreeFetched: boolean = false;
   private testTreeOpenState: Record<string, boolean> = {};
@@ -52,13 +55,14 @@ export default class TestStore {
     await this.command.initialize(context);
     this.generators.initialize(context);
     this.generators.onStateChange(this.handleGeneratorStateChange.bind(this));
+    this.generators.onGenerated(this.handleGenerated.bind(this));
 
     this.command.onTestEvent(event => {
       this.eventQueue.push(event, error => {
         if (error) this.testEventError ??= error;
       });
     });
-    context.extension.subscriptions.push(this.actionStateEmitter, this.generatorStateEmitter, { dispose: () => this.stopAll() });
+    context.extension.subscriptions.push(this.actionStateEmitter, this.generatorStateEmitter, this.generationEmitter, { dispose: () => this.stopAll() });
   }
 
   public getActionState(): TestTreeActionState {
@@ -124,6 +128,13 @@ export default class TestStore {
    */
   private handleGeneratorStateChange(): void {
     this.generatorStateEmitter.fire();
+  }
+
+  /**
+   * Tells the views that a generation pass finished, with the targets of the generators that failed.
+   */
+  private handleGenerated(failedTargets: Array<string>): void {
+    this.generationEmitter.fire(failedTargets);
   }
 
   /**
@@ -212,6 +223,13 @@ export default class TestStore {
 
   public getDiscoveryError(): string | undefined {
     return this.discoveryError;
+  }
+
+  /**
+   * Returns the last generated bundle of a Haskell generator.
+   */
+  public getBundle(workspaceId: string, target: string): Bundle | undefined {
+    return this.generators.getBundle(workspaceId, target);
   }
 
   public getDiscoveryFileErrors(): ReadonlyArray<DiscoveryFileError> {

@@ -26,6 +26,9 @@ export const HASKELL_RUN_UNAVAILABLE = 'Running Haskell properties is not availa
 /** Tells whether a test can be run. Haskell properties can't be run yet (#101). */
 export const isRunnableTest = (test: Test): boolean => test.haskell === undefined;
 
+/** Returns the hover text of a test row: a Haskell property's UAL title, nothing for Lean tests. */
+export const getTestTooltip = (test: Test): string | undefined => test.haskell?.title;
+
 export const getGroupInfo = (node: TestTreeGroupNode): TestGroupInfo => {
   const tests: Array<Test> = getGroupTests(node);
   const runnableTests = tests.filter(isRunnableTest);
